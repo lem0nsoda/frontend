@@ -80,42 +80,41 @@ function startDia(imageChangeInterval){
     if(intervalId < 0){
         intervalId = setInterval(()=>{
 
-            console.log(currentData);
-                let imageSRC = currentData.images[imageIndex].name;
-                console.log(imageSRC);
-            
-                //Message an den client
-                const diaMessage = {
-                    action: 'showDia',
-                    currentImage: imageSRC
-                };
-            
-                //alle angengebenen clients: 
-                currentData.devices.forEach((client) => {
-                    let id = String(client.id);
-            
-                    if (connectedClients.has(id)){
-                        let webs = connectedClients.get(id);
-                        if(webs.readyState === WebSocket.OPEN){
-                            webs.send(JSON.stringify(diaMessage));
-                        }
-                    } else {
-                        console.log(`Error - Client mit ID ${id} nicht verbunden!` );
-                        connectedClients.delete(id);
+            let imageSRC = currentData.images[imageIndex].name;
+            console.log(imageSRC);
+        
+            //Message an den client
+            const diaMessage = {
+                action: 'showDia',
+                currentImage: imageSRC
+            };
+        
+            //alle angengebenen clients: 
+            currentData.devices.forEach((client) => {
+                let id = String(client.id);
+        
+                if (connectedClients.has(id)){
+                    let webs = connectedClients.get(id);
+                    if(webs.readyState === WebSocket.OPEN){
+                        webs.send(JSON.stringify(diaMessage));
                     }
-                });
-            
-                //index für nächstes Bild
-                imageIndex = (imageIndex + 1);
-            
-                //1 mal durchlaufn dann abbrechen
-                if(imageIndex >= currentData.images.length){
-                    console.log("Clear interval");
-                    clearInterval(intervalId);
-                    imageIndex = 0;
-                    intervalId = -1;
+                } else {
+                    console.log(`Error - Client mit ID ${id} nicht verbunden!` );
+                    connectedClients.delete(id);
                 }
-            
+            });
+        
+            //index für nächstes Bild
+            imageIndex = (imageIndex + 1);
+        
+            //1 mal durchlaufn dann abbrechen
+            if(imageIndex >= currentData.images.length){
+                console.log("Clear interval");
+                clearInterval(intervalId);
+                imageIndex = 0;
+                intervalId = -1;
+            }
+        
         }, imageChangeInterval);
     }
 }
