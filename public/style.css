@@ -21,6 +21,28 @@ h1 {
     margin-bottom: 20px;
 }
 
+#content {
+    background-color: #e5e5e5;
+    border: 1px solid grey;
+
+    display: block;
+    top: 0;
+
+
+    width: 500px;
+    height: 200px;
+    margin: 0 auto;
+}
+
+
+.hidden {
+    display: none !important;
+}
+
+.shown {
+    display: block !important;
+}
+
 #inputs {
     width: 100%;
     max-width: 600px;
@@ -67,8 +89,12 @@ input {
     background-color: #413B4B;
 }
 
+#image .test{
+    display: block !important;
+}
+
 #image{
-    display: none;
+    /*display: none;*/
     position: fixed;
     top: 0;
     left: 0;

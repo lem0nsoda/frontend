@@ -38,7 +38,9 @@ var connectedClients = new Map();
 //VAriablen für diashow
 var imageIndex = 0;
 var currentData;
-var intervalId;
+
+// um nur einen Interval starten zu können
+var intervalId = -1;
 
 // JSON-Datei für Content asynchron lesen
 fs.readFile(path_content, 'utf8', (err, data) => {
@@ -69,70 +71,52 @@ fs.readFile(path_devices, 'utf8', (err, data) => {
 });
 
 
-//funktion zum übergeben der Daten an einen client
-function dia() {
-    let imageSRC = currentData.images[imageIndex].name;
-    console.log(imageSRC);
-
-    const diaMessage = {
-        action: 'showDia',
-        currentImage: imageSRC
-    };
-
-    /*an alle clients, welche angegeben sind schicken
-    currentData.devices.forEach((client) => {
-        console.log(client.id);
-        if (connectedClients.has(client.id) && client.readyState === WebSocket.OPEN){
-            console.log("send info ");
-            client.id.send(JSON.stringify(diaMessage));
-        } else {
-            connectedClients.delete(client);
-        }
-    });*/
-
-
-    //alle angengebenen clients: 
-    currentData.devices.forEach((client) => {
-        let id = String(client.id);
-        
-        console.log(id);
-
-
-        if (connectedClients.has(id)){
-            let webs = connectedClients.get(id);
-            if(webs.readyState === WebSocket.OPEN){
-                console.log("send info ");
-                webs.send(JSON.stringify(diaMessage));
-            }
-        } else {
-            console.log("error");
-            connectedClients.delete(id);
-        }
-    });
-
-
-    //index für nächstes Bild
-    imageIndex = (imageIndex + 1) % currentData.images.length;
-
-    //1 mal durchlaufn dann abbrechen
-    if(imageIndex >= currentData.images.length){
-        console.log("Clear interval");
-
-        clearInterval(intervalId);
-    }
-   
-}
-
 //Diashow starten 
 function startDia(imageChangeInterval){
     console.log ("slideshow start ... ");
 
-    //prüfen ob dia eine Funktion ist (hat probleme aufgeworfen)
-    console.log("Callback function: ", dia);
-    if (typeof dia === "function") {
-         const intervalId = setInterval(dia, imageChangeInterval);  // Make sure 'dia' is a valid function
-    } else {
-        console.error("Error: 'dia' is not a function.");
+    
+
+    if(intervalId < 0){
+        intervalId = setInterval(()=>{
+
+            console.log(currentData);
+                let imageSRC = currentData.images[imageIndex].name;
+                console.log(imageSRC);
+            
+                //Message an den client
+                const diaMessage = {
+                    action: 'showDia',
+                    currentImage: imageSRC
+                };
+            
+                //alle angengebenen clients: 
+                currentData.devices.forEach((client) => {
+                    let id = String(client.id);
+            
+                    if (connectedClients.has(id)){
+                        let webs = connectedClients.get(id);
+                        if(webs.readyState === WebSocket.OPEN){
+                            webs.send(JSON.stringify(diaMessage));
+                        }
+                    } else {
+                        console.log(`Error - Client mit ID ${id} nicht verbunden!` );
+                        connectedClients.delete(id);
+                    }
+                });
+            
+                //index für nächstes Bild
+                imageIndex = (imageIndex + 1);
+            
+                //1 mal durchlaufn dann abbrechen
+                if(imageIndex >= currentData.images.length){
+                    console.log("Clear interval");
+                    clearInterval(intervalId);
+                    imageIndex = 0;
+                    intervalId = -1;
+                }
+            
+        }, imageChangeInterval);
     }
 }
 
@@ -144,10 +128,20 @@ function startVideo(){
         video: currentData.name
     };
 
-    //an alle angegebenen clients schicken
+
+    //alle angengebenen clients: 
     currentData.devices.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(diaMessage));
+        let id = String(client.id);
+
+        if (connectedClients.has(id)){
+            let webs = connectedClients.get(id);
+            if(webs.readyState === WebSocket.OPEN){
+                console.log("send info ");
+                webs.send(JSON.stringify(vidMessage));
+            }
+        } else {
+            console.log(`Error - Client mit ID ${id} nicht verbunden!` );
+            connectedClients.delete(id);
         }
     });
 }
@@ -181,41 +175,39 @@ wss.on('connection', function connection(ws) {
 
         console.log(clientID);
 
-        //Neue clientid in connected clients einfügen , fehlermeldung, wenn schon vorhanden
+        //Neue clientID in connectedClients einfügen , fehlermeldung, wenn ID schon vorhanden
         if (connectedClients.has(clientID)) {
+            console.log(`Client ${clientID} verbunden`);
             ws.send(JSON.stringify({ status: 'error', message: 'ClientID schon vergeben' }));
         } else {
             connectedClients.set(clientID, ws);
             ws.send(JSON.stringify({ status: 'success', clientID: clientID, message: 'ClientID OK' }));
         }
 
-
-        console.log(`Client ${clientID} verbunden`);
-
-        //probe für diashow 
+        //ausführen je nach type von currentData
         currentData = data_content.content[0];
-        startDia(1000);
+
+        if(currentData.type == "slideshow")
+            startDia(3000);
+        else if(currentData.type == "video")
+            startVideo();
+        else
+            console.log("Error - Type not supported");
+
+
 
 
         /*/For each um gesammtes contentarray durchzugehen
         data_content.content.forEach(( c ) => {
+            currentData = c;
             // unterscheidung zwischen slideshow und video
             switch (c.type) {
                 case "slideshow":
                     console.log ("slideshow found ... ");
-                    currentData = c;
-
-
-                    setTimeout(() => {
-                        console.log("This message is delayed by 2 seconds.");
-                    }, 2000);
-
-
                     startDia(1000);
                     break;
                 case "video":
                     console.log ("video found ... ");
-                    currentData = c;
                     startVideo();
                     break;
     

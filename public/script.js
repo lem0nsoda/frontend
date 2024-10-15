@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     socket.onmessage = function(e) {
-        let message = e.data;
+        let message = JSON.parse(e.data);
 
         console.log(message);
 
@@ -29,32 +29,50 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (message.action === 'showVideo') {
-            const videoElement = document.getElementById('videoElement');
-            const videoSource = document.getElementById('videoSource');
-
-            // Video-Quelle
-            videoSource.src = message.video;
-
-            // Video laden und abspielen
-            videoElement.load();
-            videoElement.play();
-
             console.log(`Videoqulle: ${message.video}`);
-            document.getElementById('videoElement').style.display = 'block';
+            
+            let content = document.querySelector("#content");
+
+            // Einblenden
+            content.classList.remove("hidden");
+            content.classList.add("shown");
+            //alle inhalte von content löschen(überschreiben)
+            content.innerHTML = "";
+
+            // Bild erzeugen
+            let vid = document.createElement("video");
+            let source = document.createElement("source");
+            source.src = message.video;
+
+            //an content einbinden
+            vid.appendChild ( source );
+            content.appendChild ( vid );
+
+            //Video laden und abspielen
+            vid.load();
+            vid.play();
+
+            document.querySelector("#inputs").classList.remove("shown");
+            document.querySelector("#inputs").classList.add("hidden");
         }
 
         if (message.action === 'showDia') {
-            const img = document.getElementById('image');
             console.log('Diashow Bild:', message.currentImage);
 
-            // Bild sichtbar machen und setzen
-            img.style.display = 'block';
-            img.src = message.currentImage;
-        }
+            let content = document.querySelector("#content");
 
-        // Nachrichten im Chat anzeigen
-        if (message.sender && message.text) {
-            document.getElementById('messages').innerHTML += `<li>${message.sender}: ${message.text}</li>`;
+            // Einblenden
+            content.classList.remove("hidden");
+            content.classList.add("shown");
+            content.innerHTML = "";
+
+            // Bild erzeugen
+            let img = document.createElement("img");
+            img.src = message.currentImage;
+            content.appendChild ( img );
+
+            document.querySelector("#inputs").classList.remove("shown");
+            document.querySelector("#inputs").classList.add("hidden");
         }
     };
 
