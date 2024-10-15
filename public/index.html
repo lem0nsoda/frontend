@@ -6,15 +6,22 @@
     <title>WebSocket Client</title>
     <script src="script.js"></script>
 </head>
-<body>
+<body id = "body">
     <div id="inputs">
         <h1>WebSocket Chat</h1>
-        <input type="number" id="ClientID" placeholder="ClientID">
+        <input type="number" id="ClientIDInput" placeholder="ClientID">
         <input type="text" id="message" placeholder="Deine Nachricht">
         <button id="sendButton">Senden</button>
         <ul id="messages"></ul>
     </div>
-    <div id="sugardaddy"></div>
+    <div id="sugardaddy">
+
+        <img id="image"></img>
+        <video id="videoElement" controls loop>
+            <source id="videoSource" type="video/mp4">
+            Dein Browser unterstützt keine Videos.
+        </video>
+    </div>
     
    
 </body>

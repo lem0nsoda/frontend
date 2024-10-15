@@ -67,7 +67,7 @@ input {
     background-color: #413B4B;
 }
 
-#imageDisplay{
+#image{
     display: none;
     position: fixed;
     top: 0;
@@ -83,7 +83,7 @@ input {
     object-fit: contain; /* Bild anpassen, ohne es zu verzehren */
 }
 
-#vid {
+#videoElement {
     display: none; /* Anfangs verborgen */
     height: 100vh;
     background-color: white;
