@@ -1,1 +1,11 @@
-# Digital Signage Try 1 
+# Digital Signage
+
+## Installation
+
+## Beschreibung zu den Endegeräten
+
+todo:
+
+- Bla
+- Blu
+- Ble
