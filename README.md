@@ -1,2 +1,1 @@
-# digitalsignage
-DigitalSignage for multiple Displays
+# Digital Signage Try 1 

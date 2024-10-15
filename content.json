@@ -1,0 +1,60 @@
+{
+    "content": [{
+        "type": "slideshow",
+        "title": "Fachrichtungen und Ausbildungsschwerpunkte",
+        "reps": 10,
+        "devices": [
+            {"id": 1},
+            {"id": 2},
+            {"id": 3}
+        ],
+        "images": [
+            {"name": "./content/bilder/1_el.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/2_el.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/3_el.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/4_el.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/5_et.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/6_me.jpg",
+            "transition": "fade"},
+            {"name": "./content/bilder/7_it.jpg",
+            "transition": "fade"}
+        ],
+        "interval": 5
+    },
+    {
+        "type": "video",
+        "title": "Imagevideo HTL Brauau",
+        "duration": 360,
+        "devices": [
+            {"id": 1},
+            {"id": 2}
+        ],
+        "name": "./content/videos/image_video.mp4"
+    },
+    {
+        "type": "slideshow",
+        "title": "Fachrichtungen und Ausbildungsschwerpunkte",
+        "reps": 10,
+        "devices": [
+            {"id": 3}
+        ],
+        "images": [
+            {"name": "./content/et.jpg",
+            "transition": "fade"},
+            {"name": "./content/el.jpg",
+            "transition": "fade"},
+            {"name": "./content/me.jpg",
+            "transition": "fade"},
+            {"name": "./content/it.jpg",
+            "transition": "fade"}
+        ],
+        "interval": 5
+
+    }
+]
+}
