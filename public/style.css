@@ -1,37 +1,9 @@
 /* Grundlegendes, dass in allen browsern gleich ausschaut*/
-html {
-    margin: 0; /*äußere Abstand*/
-    padding: 0;	/*innere Abstand*/
-    box-sizing: border-box;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f9;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    padding: 20px;
-}
 
 h1 {
     color: black;
     text-align: center;
     margin-bottom: 20px;
-}
-
-#content {
-    background-color: #e5e5e5;
-    border: 1px solid grey;
-
-    display: block;
-    top: 0;
-
-
-    width: 500px;
-    height: 200px;
-    margin: 0 auto;
 }
 
 
@@ -50,17 +22,6 @@ h1 {
     border-radius: 8px;
     box-shadow: 0 2px 10px #BDBDBD;
     padding: 20px;
-}
-
-/* Einzelne Nachricht */
-p {
-    padding: 8px;
-    margin-bottom: 1px;
-		margin-top: 10px;
-    background-color: #F0F0F0;
-    border-radius: 5px;
-    font-size: 14px;
-    color: #333;
 }
 
 /* Input-Felder und Button */
@@ -89,46 +50,35 @@ input {
     background-color: #413B4B;
 }
 
-#image .test{
-    display: block !important;
+
+/* reset browser */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-#image{
-    /*display: none;*/
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 9999; /* Sicherstellen, dass das Bild auf der vordersten Ebene ist */
-    pointer-events: none; /* Verhindert, dass das Bild Klicks blockiert */
-    background-size: contain;
-    background-color: white;
-    background-position: center;
-    background-repeat: no-repeat;
-    object-fit: contain; /* Bild anpassen, ohne es zu verzehren */
+html, body {
+    height: 100%;
 }
 
-#videoElement {
-    display: none; /* Anfangs verborgen */
-    height: 100vh;
-    background-color: white;
-    width: auto;
+/* Container takes full screen */
+.container {
+    display: flex;
     justify-content: center;
     align-items: center;
+    width: 100vw;  /* Full viewport width */
+    height: 100vh; /* Full viewport height */
+    overflow: hidden; /* Hide overflow to avoid scrollbars */
 }
 
-video {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 9999; /* Sicherstellen, dass das Bild auf der vordersten Ebene ist */
-  pointer-events: none; /* Verhindert, dass das Bild Klicks blockiert */
-  background-size: contain;
-  background-color: white;
-  background-position: center;
-  background-repeat: no-repeat;
-  object-fit: contain; /* Bild anpassen, ohne es zu verzehren */
+/* Image styles */
+.container img, .container video {
+    max-width: 100%;
+    height: 100%;
+    width: 100%;
+    /* Maintain aspect ratio */
+    flex: 1 1 auto;
+    /* Allow images to grow and shrink */
+    object-fit: cover;
 }

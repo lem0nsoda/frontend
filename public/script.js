@@ -1,8 +1,10 @@
 
+let socket;
+
 document.addEventListener('DOMContentLoaded', function() {
     // WebSocket-Verbindung herstellen
     //const socket = new WebSocket('ws://192.168.2.209:3000'); // daham
-    const socket = new WebSocket('ws://10.13.243.238:3000'); // schui
+    socket = new WebSocket('ws://10.13.243.238:3000'); // schui
     var clientID = null;
 
     socket.onopen = () => {
@@ -23,13 +25,20 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('ClientID: ' + clientID);
 
             // Eingabefeld für die ClientID ausblenden, nachdem eine ID registriert wurde
-            document.getElementById('ClientIDInput').style.display = 'none';
+            document.querySelector("#inputs").classList.remove("shown");
+            document.querySelector("#inputs").classList.add("hidden");
+
+            //style setzen 
+            
         } else if (message.status === 'error') {
             console.log('ClientID schon vergeben! Gib eine andere ClientID ein!');
         }
 
         if (message.action === 'showVideo') {
             console.log(`Videoqulle: ${message.video}`);
+
+            //dateipfad für <img> mit base64 
+            const videoSrc = `data:${message.fileType};base64,${message.data}`;
             
             let content = document.querySelector("#content");
 
@@ -42,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Bild erzeugen
             let vid = document.createElement("video");
             let source = document.createElement("source");
-            source.src = message.video;
+            source.src = videoSrc;
 
             //an content einbinden
             vid.appendChild ( source );
@@ -57,7 +66,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (message.action === 'showDia') {
+            //source in console ausgeben
             console.log('Diashow Bild:', message.currentImage);
+
+            //dateipfad für <img> mit base64 
+            const imageSrc = `data:${message.fileType};base64,${message.data}`;
 
             let content = document.querySelector("#content");
 
@@ -68,9 +81,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Bild erzeugen
             let img = document.createElement("img");
-            img.src = message.currentImage;
+            img.src = imageSrc;
             content.appendChild ( img );
 
+            //inputfelder von ID entfernen
             document.querySelector("#inputs").classList.remove("shown");
             document.querySelector("#inputs").classList.add("hidden");
         }
@@ -78,25 +92,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('sendButton').onclick = function() {
         const enteredID = document.getElementById('ClientIDInput').value;
-        const text = document.getElementById('message').value;
 
         // Client-ID senden, wenn noch keine vorhanden ist
         if (!clientID && enteredID) {
             const message = {
-                clientID: enteredID,
-                text: text
+                clientID: enteredID
             };
             socket.send(JSON.stringify(message));
-            document.getElementById('message').value = ''; // Nachrichteneingabe leeren
         }
         // Nachricht mit der bereits registrierten Client-ID senden
         else if (clientID) {
             const message = {
-                clientID: clientID,
-                text: text
+                clientID: clientID
             };
+
             socket.send(JSON.stringify(message));
-            document.getElementById('message').value = ''; // Nachrichteneingabe leeren
         }
     };
 });

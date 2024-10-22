@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 var fs = require('fs');
+const mime = require('mime-types');
 
 //Express app
 const app = express();
@@ -72,76 +73,108 @@ fs.readFile(path_devices, 'utf8', (err, data) => {
 
 
 //Diashow starten 
-function startDia(imageChangeInterval){
+function startDia(imageData){
     console.log ("slideshow start ... ");
-
     
-
     if(intervalId < 0){
         intervalId = setInterval(()=>{
+            //auf pfad zugreifen      console.log(imageSRC);
 
-            let imageSRC = currentData.images[imageIndex].name;
-            console.log(imageSRC);
-        
-            //Message an den client
-            const diaMessage = {
-                action: 'showDia',
-                currentImage: imageSRC
-            };
-        
-            //alle angengebenen clients: 
-            currentData.devices.forEach((client) => {
-                let id = String(client.id);
-        
-                if (connectedClients.has(id)){
-                    let webs = connectedClients.get(id);
-                    if(webs.readyState === WebSocket.OPEN){
-                        webs.send(JSON.stringify(diaMessage));
-                    }
-                } else {
-                    console.log(`Error - Client mit ID ${id} nicht verbunden!` );
-                    connectedClients.delete(id);
+            const imagePath = path.join(__dirname, imageData.images[imageIndex].name);
+
+            fs.readFile(imagePath, (err, data) => {
+                if (err) {
+                    console.error('Fehler beim Lesen der Datei:', err);
+                    return;
                 }
-            });
+            
+                // Bild in Base64 umwandeln
+                const base64Image = data.toString('base64');
+
+                // Dateityp dynamisch ermitteln
+                const mimeType = mime.lookup(imagePath);
         
+                //Message an den client
+                const diaMessage = {
+                    action: 'showDia',
+                    currentImage: imageData.images[imageIndex].name,
+                    fileType: mimeType,
+                    data: base64Image
+                };
+        
+                //alle angengebenen clients: 
+                imageData.devices.forEach((client) => {
+                    let id = String(client.id);
+            
+                    if (connectedClients.has(id)){
+                        let webs = connectedClients.get(id);
+                        if(webs.readyState === WebSocket.OPEN){
+                            webs.send(JSON.stringify(diaMessage));
+                        }
+                    } else {
+                        console.log(`Error - Client mit ID ${id} nicht verbunden!` );
+                        connectedClients.delete(id);
+                    }
+                });
+            });
+            
             //index für nächstes Bild
-            imageIndex = (imageIndex + 1);
+            imageIndex ++;
         
             //1 mal durchlaufn dann abbrechen
-            if(imageIndex >= currentData.images.length){
+            if(imageIndex >= imageData.images.length){
                 console.log("Clear interval");
                 clearInterval(intervalId);
                 imageIndex = 0;
                 intervalId = -1;
             }
         
-        }, imageChangeInterval);
+        }, imageData.interval*1000);
     }
 }
 
 //video starten und übergeben
-function startVideo(){
-    console.log("play video");
-    const vidMessage = {
-        action: 'showVideo',
-        video: currentData.name
-    };
+function startVideo(videoData){
+    //videoSRC
+    let videoSRC = videoData.name;
 
+    const videoPath = path.join(__dirname, videoSRC);
 
-    //alle angengebenen clients: 
-    currentData.devices.forEach((client) => {
-        let id = String(client.id);
-
-        if (connectedClients.has(id)){
-            let webs = connectedClients.get(id);
-            if(webs.readyState === WebSocket.OPEN){
-                console.log("send info ");
-                webs.send(JSON.stringify(vidMessage));
-            }
-        } else {
-            console.log(`Error - Client mit ID ${id} nicht verbunden!` );
-            connectedClients.delete(id);
+    fs.readFile(videoPath, (err, data) => {
+        if (err) {
+            console.error('Fehler beim Lesen der Datei:', err);
+            return;
         }
+    
+        // Bild in Base64 umwandeln
+        const base64Video = data.toString('base64');
+
+        // Dateityp dynamisch ermitteln
+        const mimeType = mime.lookup(videoPath);
+    
+        //message an client
+        const vidMessage = {
+            action: 'showVideo',
+            video: videoSRC,
+            fileType: mimeType,
+            data: base64Video
+        };
+
+        //alle angengebenen clients: 
+        videoData.devices.forEach((client) => {
+            let id = String(client.id);
+
+            if (connectedClients.has(id)){
+                let webs = connectedClients.get(id);
+                if(webs.readyState === WebSocket.OPEN){
+                    console.log("send info ");
+                    webs.send(JSON.stringify(vidMessage));
+                }
+            } else {
+                console.log(`Error - Client mit ID ${id} nicht verbunden!` );
+                connectedClients.delete(id);
+            }
+        });
     });
 }
 
@@ -150,6 +183,7 @@ function startVideo(){
 wss.on('connection', function connection(ws) {
 
     var clientID;
+    var index = 0;
 
     const welcomeMessage = {
         sender: 'Server',
@@ -180,40 +214,57 @@ wss.on('connection', function connection(ws) {
             ws.send(JSON.stringify({ status: 'error', message: 'ClientID schon vergeben' }));
         } else {
             connectedClients.set(clientID, ws);
-            ws.send(JSON.stringify({ status: 'success', clientID: clientID, message: 'ClientID OK' }));
+            device = { 
+                status: 'success',
+                clientID: clientID, 
+                message: 'ClientID OK' 
+            };
+            data_device.forEach((d) => {
+                if(d.id == clientID)
+                    device+=d;
+            });
+            ws.send(JSON.stringify());
         }
 
-        //ausführen je nach type von currentData
-        currentData = data_content.content[0];
 
-        if(currentData.type == "slideshow")
-            startDia(3000);
-        else if(currentData.type == "video")
-            startVideo();
-        else
-            console.log("Error - Type not supported");
+        function runThroughArray(array) {
+            const startTime = Date.now(); // Capture the current time
+            let delay = 0;
+            let index = 0; // Initialize the index
+        
+            function iterate() {
+                const currentTime = Date.now(); // Get the current time
+        
+                // delay zeit vergangen? 
+                if (currentTime - startTime >= delay ) {
 
-
-
-
-        /*/For each um gesammtes contentarray durchzugehen
-        data_content.content.forEach(( c ) => {
-            currentData = c;
-            // unterscheidung zwischen slideshow und video
-            switch (c.type) {
-                case "slideshow":
-                    console.log ("slideshow found ... ");
-                    startDia(1000);
-                    break;
-                case "video":
-                    console.log ("video found ... ");
-                    startVideo();
-                    break;
-    
-                default:
-                    console.log ("not supported");
+                    if(array[index].type == "slideshow"){
+                        startDia(array[index]);
+                        delay += array[index].interval * (array[index].images.length +1) * 1000;
+                    }
+                    else if(array[index].type == "video"){
+                        startVideo(array[index]);
+                        delay += array[index].duration * 1000;
+                    }
+                    else{
+                        console.log("Error - Type not supported");
+                    }
+                    console.log(array[index]); // Log the current element
+                    index++; 
+                    
+                    // mehr array elemente?
+                    if (index < array.length) {
+                        iterate(); // rekursiver aufruf
+                    }
+                } else {        //noch nicht vergangen -> kurz warten -> wieder versuchen 
+                    setTimeout(iterate, 50); // oft wieder versuchen
+                }
             }
-        });*/
+        
+            iterate(); // Start the iteration
+        }
+
+        runThroughArray(data_content.content, 10000);
 
         console.log("Close");
     });
@@ -230,3 +281,14 @@ wss.on('connection', function connection(ws) {
 server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);
 });
+
+function trace(message, color = 'black') {
+    const now = new Date(); // Get the current system time
+    const timestamp = now.toISOString(); // Format the time as ISO string
+
+    // Create a styled message
+    const styledMessage = `%c${timestamp} - ${message}`;
+    
+    // Log the styled message to the console with the specified color
+    console.log(styledMessage, `color: ${color}`);
+}
