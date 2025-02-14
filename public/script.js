@@ -1,112 +1,66 @@
-
 let socket;
+let clientID = null;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
-    //const socket = new WebSocket('ws://192.168.2.209:3000'); // daham
-    socket = new WebSocket('ws://10.13.243.238:3000'); // schui
-    var clientID = null;
-
+    socket = new WebSocket('ws://10.51.0.53:3000');
     socket.onopen = () => {
         console.log('Connected to the WebSocket server');
     };
 
-    socket.onerror = function(error) {
+    socket.onerror = function (error) {
         console.log('WebSocket-Fehler: ' + error);
     };
 
-    socket.onmessage = function(e) {
+    socket.onmessage = function (e) {
         let message = JSON.parse(e.data);
-
         console.log(message);
 
         if (message.status === 'success') {
             clientID = message.clientID;
-            console.log('ClientID: ' + clientID);
+            console.log('ClientID registriert:', clientID);
 
-            // Eingabefeld für die ClientID ausblenden, nachdem eine ID registriert wurde
-            document.querySelector("#inputs").classList.remove("shown");
-            document.querySelector("#inputs").classList.add("hidden");
+            // Eingabefeld ausblenden
+            document.querySelector("#clientInput").classList.add("hidden");
 
-            //style setzen 
-            
         } else if (message.status === 'error') {
-            console.log('ClientID schon vergeben! Gib eine andere ClientID ein!');
+            alert('ClientID schon vergeben! Gib eine andere ClientID ein!');
         }
 
-        if (message.action === 'showVideo') {
-            console.log(`Videoqulle: ${message.video}`);
-
-            //dateipfad für <img> mit base64 
-            const videoSrc = `data:${message.fileType};base64,${message.data}`;
-            
-            let content = document.querySelector("#content");
-
-            // Einblenden
-            content.classList.remove("hidden");
-            content.classList.add("shown");
-            //alle inhalte von content löschen(überschreiben)
-            content.innerHTML = "";
-
-            // Bild erzeugen
-            let vid = document.createElement("video");
-            let source = document.createElement("source");
-            source.src = videoSrc;
-
-            //an content einbinden
-            vid.appendChild ( source );
-            content.appendChild ( vid );
-
-            //Video laden und abspielen
-            vid.load();
-            vid.play();
-
-            document.querySelector("#inputs").classList.remove("shown");
-            document.querySelector("#inputs").classList.add("hidden");
+        if (message.action === 'showContent') {
+            showPlaylist(message);
         }
 
-        if (message.action === 'showDia') {
-            //source in console ausgeben
-            console.log('Diashow Bild:', message.currentImage);
-
-            //dateipfad für <img> mit base64 
-            const imageSrc = `data:${message.fileType};base64,${message.data}`;
-
-            let content = document.querySelector("#content");
-
-            // Einblenden
-            content.classList.remove("hidden");
-            content.classList.add("shown");
-            content.innerHTML = "";
-
-            // Bild erzeugen
-            let img = document.createElement("img");
-            img.src = imageSrc;
-            content.appendChild ( img );
-
-            //inputfelder von ID entfernen
-            document.querySelector("#inputs").classList.remove("shown");
-            document.querySelector("#inputs").classList.add("hidden");
-        }
     };
 
-    document.getElementById('sendButton').onclick = function() {
-        const enteredID = document.getElementById('ClientIDInput').value;
+    document.getElementById('sendButton').onclick = function () {
+        const enteredID = document.getElementById('name').value;
 
-        // Client-ID senden, wenn noch keine vorhanden ist
-        if (!clientID && enteredID) {
-            const message = {
-                clientID: enteredID
-            };
-            socket.send(JSON.stringify(message));
+        if (!enteredID) {
+            alert("Bitte eine ClientID eingeben!");
+            return;
         }
-        // Nachricht mit der bereits registrierten Client-ID senden
-        else if (clientID) {
-            const message = {
-                clientID: clientID
-            };
 
+        if (socket.readyState === WebSocket.OPEN) {
+            const message = { clientID_new: enteredID };
             socket.send(JSON.stringify(message));
+            console.log("Client-ID gesendet:", enteredID);
+        } else {
+            console.error("WebSocket-Verbindung nicht geöffnet!");
         }
     };
 });
+
+function showPlaylist(message) {
+
+    console.log("pidl", message.contentData);
+    
+    let content = document.querySelector("#content");
+    content.classList.remove("hidden");
+    content.innerHTML = "";
+
+    // Content sichtbar machen und setzen
+    content.style.display = 'block';
+    content.src = message.currentContent;
+
+}

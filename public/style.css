@@ -1,84 +1,46 @@
-/* Grundlegendes, dass in allen browsern gleich ausschaut*/
-
-h1 {
-    color: black;
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-
-.hidden {
-    display: none !important;
-}
-
-.shown {
-    display: block !important;
-}
-
-#inputs {
-    width: 100%;
-    max-width: 600px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px #BDBDBD;
-    padding: 20px;
-}
-
-/* Input-Felder und Button */
-input {
-    width: calc(100% - 110px);
-    padding: 10px;
-    margin-right: 10px;
-    border: 1px solid #CCCCCC;
-    border-radius: 4px;
-    font-size: 16px;
-    margin-bottom: 8px; /* Abstand zwischen den beiden Input-Feldern */
-}
-
-#sendButton {
-    padding: 10px 20px;
-    background-color: #5B4975;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-/* Hover-Effekt für den Button */
-#sendButton:hover {
-    background-color: #413B4B;
-}
-
-
-/* reset browser */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-html, body {
-    height: 100%;
-}
-
-/* Container takes full screen */
-.container {
+body {
+    background-color: #f8f9fa;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100vw;  /* Full viewport width */
-    height: 100vh; /* Full viewport height */
-    overflow: hidden; /* Hide overflow to avoid scrollbars */
+    height: 100vh;
+    margin: 0;
 }
-
-/* Image styles */
-.container img, .container video {
-    max-width: 100%;
-    height: 100%;
-    width: 100%;
-    /* Maintain aspect ratio */
-    flex: 1 1 auto;
-    /* Allow images to grow and shrink */
-    object-fit: cover;
+#clientInput {
+    text-align: center;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+#text {
+    color: #003563;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+#name {
+    border: 2px solid #003563;
+}
+#sendButton {
+    background-color: #003563;
+    color: white;
+    border: none;
+}
+#sendButton:hover {
+    background-color: #002a4b;
+}
+#userInterfaceButton {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #003563;
+    color: white;
+    border-radius: 6px;
+    width: 120px;
+    height: 40px;
+    font-size: 16px;
+    border: none;
+}
+#userInterfaceButton:hover {
+    background-color: #002a4b;
 }

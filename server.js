@@ -2,293 +2,204 @@ const WebSocket = require('ws');
 const express = require('express');
 const path = require('path');
 const http = require('http');
-var fs = require('fs');
+const fs = require('fs');
 const mime = require('mime-types');
 
-//Express app
 const app = express();
-//const hostname = '192.168.2.209'; // daham
-const hostname = '10.13.243.238'; // htl
+const hostname = '10.51.0.53';
 const port = 3000;
-
-// HTTP-Server erstellen und sowohl für Express als auch für WebSocket verwenden
 const server = http.createServer(app);
-
-// WebSocket-Server an den HTTP-Server binden
 const wss = new WebSocket.Server({ server });
 
-// Static Files (HTML, JS, CSS) aus dem 'public'-Ordner
+const apiurl = "https://digital-signage.htl-futurezone.at/api/index.php";
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Optionale Route für '/'
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-//Json dateien einbinden
-const path_content = './content.json'; // Pfad zur JSON-Datei
-const path_devices = './devices.json'; // Pfad zur JSON-Datei
+wss.on('connection', async function connection(ws) {
 
-//daten aus json strings
-var data_content;
-var data_device;
-
-//Set (Array) für clients - keine zwei gleichen elemente möglich
-var connectedClients = new Map();
-
-//VAriablen für diashow
-var imageIndex = 0;
-var currentData;
-
-// um nur einen Interval starten zu können
-var intervalId = -1;
-
-// JSON-Datei für Content asynchron lesen
-fs.readFile(path_content, 'utf8', (err, data) => {
-    if (err) {
-        console.error('Fehler beim Lesen der Datei:', err);
-        return;
-    }
-    
-    try {
-        data_content = JSON.parse(data); // JSON parsen
-    } catch (err) {
-        console.error('Fehler beim Parsen von JSON:', err);
-    }
-});
-
-// JSON-Datei für Content asynchron lesen
-fs.readFile(path_devices, 'utf8', (err, data) => {
-    if (err) {
-        console.error('Fehler beim Lesen der Datei:', err);
-        return;
-    }
-    
-    try {
-        data_device = JSON.parse(data); // JSON parsen
-    } catch (err) {
-        console.error('Fehler beim Parsen von JSON:', err);
-    }
-});
-
-
-//Diashow starten 
-function startDia(imageData){
-    console.log ("slideshow start ... ");
-    
-    if(intervalId < 0){
-        intervalId = setInterval(()=>{
-            //auf pfad zugreifen      console.log(imageSRC);
-
-            const imagePath = path.join(__dirname, imageData.images[imageIndex].name);
-
-            fs.readFile(imagePath, (err, data) => {
-                if (err) {
-                    console.error('Fehler beim Lesen der Datei:', err);
-                    return;
-                }
-            
-                // Bild in Base64 umwandeln
-                const base64Image = data.toString('base64');
-
-                // Dateityp dynamisch ermitteln
-                const mimeType = mime.lookup(imagePath);
-        
-                //Message an den client
-                const diaMessage = {
-                    action: 'showDia',
-                    currentImage: imageData.images[imageIndex].name,
-                    fileType: mimeType,
-                    data: base64Image
-                };
-        
-                //alle angengebenen clients: 
-                imageData.devices.forEach((client) => {
-                    let id = String(client.id);
-            
-                    if (connectedClients.has(id)){
-                        let webs = connectedClients.get(id);
-                        if(webs.readyState === WebSocket.OPEN){
-                            webs.send(JSON.stringify(diaMessage));
-                        }
-                    } else {
-                        console.log(`Error - Client mit ID ${id} nicht verbunden!` );
-                        connectedClients.delete(id);
-                    }
-                });
-            });
-            
-            //index für nächstes Bild
-            imageIndex ++;
-        
-            //1 mal durchlaufn dann abbrechen
-            if(imageIndex >= imageData.images.length){
-                console.log("Clear interval");
-                clearInterval(intervalId);
-                imageIndex = 0;
-                intervalId = -1;
-            }
-        
-        }, imageData.interval*1000);
-    }
-}
-
-//video starten und übergeben
-function startVideo(videoData){
-    //videoSRC
-    let videoSRC = videoData.name;
-
-    const videoPath = path.join(__dirname, videoSRC);
-
-    fs.readFile(videoPath, (err, data) => {
-        if (err) {
-            console.error('Fehler beim Lesen der Datei:', err);
-            return;
-        }
-    
-        // Bild in Base64 umwandeln
-        const base64Video = data.toString('base64');
-
-        // Dateityp dynamisch ermitteln
-        const mimeType = mime.lookup(videoPath);
-    
-        //message an client
-        const vidMessage = {
-            action: 'showVideo',
-            video: videoSRC,
-            fileType: mimeType,
-            data: base64Video
-        };
-
-        //alle angengebenen clients: 
-        videoData.devices.forEach((client) => {
-            let id = String(client.id);
-
-            if (connectedClients.has(id)){
-                let webs = connectedClients.get(id);
-                if(webs.readyState === WebSocket.OPEN){
-                    console.log("send info ");
-                    webs.send(JSON.stringify(vidMessage));
-                }
-            } else {
-                console.log(`Error - Client mit ID ${id} nicht verbunden!` );
-                connectedClients.delete(id);
-            }
-        });
-    });
-}
-
-
-//NEUER CLIENT CONNECTED
-wss.on('connection', function connection(ws) {
-
-    var clientID;
-    var index = 0;
-
-    const welcomeMessage = {
-        sender: 'Server',
-        text: 'Ein neuer Client hat sich verbunden.',
-    };
-    ws.send(JSON.stringify(welcomeMessage));
-
-    //nachricht erhalten
-    ws.on('message', function incoming(message) {
-        console.log('Erhalten: %s', message);
-
-        //parse JSON String von message
+    //CLIENTID
+    ws.on('message', async function incoming(message) {
         try {
-            var parsedMessage = JSON.parse(message);
-        } catch (error) {
-            console.error('Fehler beim Parsen der Nachricht:', error);
-            return;
-        }
+            let parsedMessage = JSON.parse(message);
+            let clientID_new = parsedMessage.clientID_new;
 
-        // Client ID abspeichern 
-        clientID = parsedMessage.clientID;
+            // API-Aufruf zur Überprüfung der ClientID
+            const response = await fetch(`${apiurl}/client/getThis?id=${clientID_new}`);
+            if (!response.ok) throw new Error("API-Fehler ClientID");
+            const data = await response.json();
 
-        console.log(clientID);
-
-        //Neue clientID in connectedClients einfügen , fehlermeldung, wenn ID schon vorhanden
-        if (connectedClients.has(clientID)) {
-            console.log(`Client ${clientID} verbunden`);
-            ws.send(JSON.stringify({ status: 'error', message: 'ClientID schon vergeben' }));
-        } else {
-            connectedClients.set(clientID, ws);
-            device = { 
-                status: 'success',
-                clientID: clientID, 
-                message: 'ClientID OK' 
-            };
-            data_device.forEach((d) => {
-                if(d.id == clientID)
-                    device+=d;
-            });
-            ws.send(JSON.stringify());
-        }
-
-
-        function runThroughArray(array) {
-            const startTime = Date.now(); // Capture the current time
-            let delay = 0;
-            let index = 0; // Initialize the index
-        
-            function iterate() {
-                const currentTime = Date.now(); // Get the current time
-        
-                // delay zeit vergangen? 
-                if (currentTime - startTime >= delay ) {
-
-                    if(array[index].type == "slideshow"){
-                        startDia(array[index]);
-                        delay += array[index].interval * (array[index].images.length +1) * 1000;
-                    }
-                    else if(array[index].type == "video"){
-                        startVideo(array[index]);
-                        delay += array[index].duration * 1000;
-                    }
-                    else{
-                        console.log("Error - Type not supported");
-                    }
-                    console.log(array[index]); // Log the current element
-                    index++; 
-                    
-                    // mehr array elemente?
-                    if (index < array.length) {
-                        iterate(); // rekursiver aufruf
-                    }
-                } else {        //noch nicht vergangen -> kurz warten -> wieder versuchen 
-                    setTimeout(iterate, 50); // oft wieder versuchen
-                }
+            if (!data || data.length === 0) {
+                ws.send(JSON.stringify({ status: 'error', message: 'ClientID existiert nicht' }));
+                return;
             }
-        
-            iterate(); // Start the iteration
+
+            const clientStatus = data[0].status;
+            const clientID = data[0].id;
+
+            //console.log(clientStatus);
+            //console.log("id  " + clientID);
+
+            if (clientStatus == 1) {
+                ws.send(JSON.stringify({ status: 'error', message: 'Neue Client ID eingeben, diese ist schon vergeben' }));
+                return;
+            }
+
+            //console.log(JSON.stringify({ id: clientID, status: 1 }));
+
+            // Client als online in der API markieren
+            const responseUpdate = await fetch(`${apiurl}/client/update`, {
+                method: 'POST',
+                headers: { 'Client-Status': 'application/json' },
+                body: JSON.stringify({ 'id': clientID, 'status': 1 })
+            });
+
+            if (!responseUpdate.ok) throw new Error("API-Fehler ClientID");
+            const dataUpdate = await responseUpdate.json();
+
+            //console.log(dataUpdate);
+
+            // API-Aufruf zur Überprüfung der ClientID
+            const responsenew = await fetch(`${apiurl}/client/getThis?id=${clientID_new}`);
+            if (!responsenew.ok) throw new Error("API-Fehler ClientID");
+            const datanew = await responsenew.json();
+
+            //console.log(datanew[0].status);
+
+
+            ws.send(JSON.stringify({ status: 'success', clientID: clientID_new }));
+            console.log(`Client ${clientID_new} verbunden.`);
+
+            sendPlaylist(ws);
+        } catch (error) {
+            console.error("Fehler:", error);
+            ws.send(JSON.stringify({ status: 'error', message: 'Serverfehler' }));
         }
-
-        runThroughArray(data_content.content, 10000);
-
-        console.log("Close");
     });
 
-
-    ws.on('close', function () {
-        console.log(`Client ${clientID || 'Unbekannt'} hat die Verbindung getrennt.`);
-        // Entferne den Client, wenn die Verbindung geschlossen wird
-        connectedClients.delete(clientID);
+    ws.on('close', async () => {
+        console.log("Client getrennt, Status offline");
+        try {
+            await fetch(`${apiurl}/client/update`, {
+                method: 'POST',
+                headers: { 'Client-Status': 'application/json' },
+                body: JSON.stringify({ 'id': clientID, 'status': 0 })
+            });
+        } catch (error) {
+            console.error("Fehler beim Aktualisieren des Status:", error);
+        }
     });
 });
 
-// Server-URL ausgeben
+//ZEITPLAN
+
+async function fetchSchedule(id) {
+    //console.log("ahhh");
+
+    try {
+        //alle schedules holen
+        const responseSched = await fetch(`${apiurl}/playlist/get?table=play_playlist&limit=30`);
+        const dataSched = await responseSched.json();
+
+        console.log(dataSched);
+        return data[0];
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+
+    //zeitpläne auf welcher der aktuelleste ist (startzeitpunkt)
+
+    // aus nächsten zeitplan mit startzeitpunkt die playlist & clients holen
+
+    //kontrolle zeit, starten der playlist
+    //sendPlaylist();   //in dieser funktion bei api lokale variable mit playlistid aus zeitplan
+
+    //wenn zeitplan 7 tage abgelaufen - zeitplan aus datenbank löschen
+}
+
+
+// PLAYLIST
+async function sendPlaylist(ws) {
+    try {
+        const response = await fetch(`${apiurl}/playlist/getBy?table=playlist_contains&is=25&where=playlist_ID`);
+        if (!response.ok) throw new Error("Fehler beim Abrufen der Playlist");
+        const playlist = await response.json();
+
+        console.log(playlist);
+
+        if (!playlist || playlist.length == 0) {
+            console.error("KeinePlaylist gefunden");
+            return;
+        }
+
+        let index = 0;
+
+        function loop() {
+
+            if(index < playlist.length){
+                const duration = 0;
+
+                let play = playlist[index];
+
+                    //console.log(play.content_ID);
+                    
+                    const content_ID = play.content_ID;
+                    
+                    fetchContent(content_ID).then(content => {
+                        //console.log("oben", content.duration);
+
+
+                        if (!content || content == null) {
+                            console.error("Kein COntent gefunden");
+                            return;
+                        }
+                        //console.log("ahhh");
+
+                        let duration = content.duration;
+
+                        console.log("Dur" + duration);
+
+                        //nachricht an script zur anzeige  
+                        let contentAnzeigen = {
+                            action: 'showContent',
+                            contentData: content
+                        };
+
+                        wss.clients.forEach(function each(ws) {
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify(contentAnzeigen));
+                            }
+                        });
+
+                    }); 
+
+                    index ++;
+                    
+                setTimeout(loop, duration); 
+
+            }
+        }
+        loop();
+    } catch (error) {
+        console.error('Fehler beim Abrufen der Playlist:', error);
+    }
+}
+async function fetchContent(id) {
+    //console.log("ahhh");
+
+    try {
+        const response = await fetch(`${apiurl}/content/getThis?id=` + id);
+        const data = await response.json();
+        //console.log(data);
+        return data[0];
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
 server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);
 });
-
-function trace(message, color = 'black') {
-    const now = new Date(); // Get the current system time
-    const timestamp = now.toISOString(); // Format the time as ISO string
-
-    // Create a styled message
-    const styledMessage = `%c${timestamp} - ${message}`;
-    
-    // Log the styled message to the console with the specified color
-    console.log(styledMessage, `color: ${color}`);
-}

@@ -27,6 +27,16 @@
         "interval": 3
     },
     {
+        "type": "video",
+        "title": "Imagevideo HTL Brauau",
+        "duration": 12,
+        "devices": [
+            {"id": 1},
+            {"id": 2}
+        ],
+        "name": "./public/content/videos/image_video.mp4"
+    },
+    {
         "type": "slideshow",
         "title": "Fachrichtungen und Ausbildungsschwerpunkte",
         "reps": 10,
