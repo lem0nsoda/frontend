@@ -1,9 +1,12 @@
 let socket;
 let clientID = null;
+let clientName = null;
+let playlistName = null;
+let nextStart = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
-    socket = new WebSocket('ws://10.51.0.53:3000');
+    socket = new WebSocket('ws://192.168.2.209:3000');
     socket.onopen = () => {
         console.log('Connected to the WebSocket server');
     };
@@ -17,50 +20,134 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(message);
 
         if (message.status === 'success') {
-            clientID = message.clientID;
-            console.log('ClientID registriert:', clientID);
+            clientName = message.clientName;
+            console.log('Client-Name registriert:', clientName);
 
             // Eingabefeld ausblenden
-            document.querySelector("#clientInput").classList.add("hidden");
+            document.getElementById("clientInput").style.display = "none";
+
+            //setzen der variablen
+            if(!clientID)
+                clientID = message.clientID;
+            if(!clientName)
+                clientName = message.clientName;
+
+            showClientInfo();
 
         } else if (message.status === 'error') {
-            alert('ClientID schon vergeben! Gib eine andere ClientID ein!');
+            alert('clientName schon vergeben! Gib eine andere clientName ein!');
         }
 
         if (message.action === 'showContent') {
-            showPlaylist(message);
+
+            if(message.clients.includes(clientID)){
+                console.log("absdvnsduiovho");
+                console.log(clientID);
+                if(message.contentData.type.includes("image")){
+
+                    console.log("image");
+                    showImage(message);
+                } else if(message.contentData.type.includes("video")){
+
+                    console.log("video");
+                    showVideo(message);
+                }
+            }
+        } else if (message.action === 'showClientInfo') {
+            showClientInfo();
+        }  else if (message.action === 'info') {
+            console.log("info " + playlistName + " s : " +nextStart);
+            if(message.playlistName && !playlistName)
+                playlistName = message.playlistName;
+            if(message.nextStart && !nextStart)
+                nextStart = message.nextStart;
+
+            console.log("p: " + playlistName + " s : " +nextStart);
+
+            showClientInfo();
+        }else if(message.action === 'reset'){
+
+            playlistName = null;
+            nextStart = null;
+
+            showClientInfo();
         }
 
     };
 
     document.getElementById('sendButton').onclick = function () {
-        const enteredID = document.getElementById('name').value;
+        const enteredName = document.getElementById('name').value;
 
-        if (!enteredID) {
-            alert("Bitte eine ClientID eingeben!");
+        if (!enteredName) {
+            alert("Bitte einen ClientName eingeben!");
             return;
         }
 
         if (socket.readyState === WebSocket.OPEN) {
-            const message = { clientID_new: enteredID };
+            const message = { clientName_new: enteredName };
             socket.send(JSON.stringify(message));
-            console.log("Client-ID gesendet:", enteredID);
+            console.log("Client-Name gesendet:", enteredName);
         } else {
             console.error("WebSocket-Verbindung nicht geöffnet!");
         }
     };
+
+    function showClientInfo(message) {
+
+        console.log("Clientid & name", clientID, clientName);
+
+        let content = document.querySelector("#content");
+        content.classList.remove("hidden");
+        content.innerHTML = "";
+
+        let infoDiv = document.createElement("div");
+        infoDiv.classList.add("client-info");
+
+        let clientIdText = document.createElement("p");
+        clientIdText.innerText = "Client ID: " + clientID;
+
+        let clientNameText = document.createElement("p");
+        clientNameText.innerText = "Name: " + clientName;
+
+        if(playlistName && nextStart){
+            let clientStartText = document.createElement("p");
+            clientStartText.innerText = "Next Playlist " + playlistName + " Start: " + nextStart;
+
+            infoDiv.appendChild(clientStartText);
+        }
+        infoDiv.appendChild(clientIdText);
+        infoDiv.appendChild(clientNameText);
+        content.appendChild(infoDiv);
+    }
+
+    function showImage(message) {
+
+        let content = document.querySelector("#content");
+        content.classList.remove("hidden");
+        content.innerHTML = "";
+
+        let img = document.createElement("img");
+        img.src = message.contentData.data;
+        img.alt = "Playlist-Inhalt";
+        img.classList.add("img-fluid");
+
+        content.appendChild(img);
+    }
+
+    function showVideo(message) {
+
+        let content = document.querySelector("#content");
+        content.classList.remove("hidden");
+        content.innerHTML = ""; // Vorherigen Inhalt löschen
+
+        let video = document.createElement("video");
+        video.src = message.contentData.data;
+        video.autoplay = true; // Startet automatisch
+        video.loop = true; // Optional: Wiederholt das Video
+        video.classList.add("video-fluid");
+
+        content.appendChild(video);
+    }
+
+
 });
-
-function showPlaylist(message) {
-
-    console.log("pidl", message.contentData);
-    
-    let content = document.querySelector("#content");
-    content.classList.remove("hidden");
-    content.innerHTML = "";
-
-    // Content sichtbar machen und setzen
-    content.style.display = 'block';
-    content.src = message.currentContent;
-
-}

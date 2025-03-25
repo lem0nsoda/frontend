@@ -3,10 +3,9 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
-const mime = require('mime-types');
 
 const app = express();
-const hostname = '10.51.0.53';
+const hostname = '192.168.2.209';
 const port = 3000;
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -19,177 +18,258 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+var playClients = [];
+
+var savedContent = [];
+var contentDuration = [];
+
+var nextPlay = null;
+
+var playlistData = null;
+
 wss.on('connection', async function connection(ws) {
 
     //CLIENTID
+    let clientID = null;
+    let clientName = null;
+    let clientStatus = null;
+
     ws.on('message', async function incoming(message) {
         try {
             let parsedMessage = JSON.parse(message);
-            let clientID_new = parsedMessage.clientID_new;
+            let clientName_new = parsedMessage.clientName_new;
 
-            // API-Aufruf zur Überprüfung der ClientID
-            const response = await fetch(`${apiurl}/client/getThis?id=${clientID_new}`);
-            if (!response.ok) throw new Error("API-Fehler ClientID");
+            const response = await fetch(`${apiurl}/client/getBy?table=client&where=name&is=${clientName_new}`);
+            if (!response.ok) throw new Error("API-Fehler ClientName");
             const data = await response.json();
 
-            if (!data || data.length === 0) {
-                ws.send(JSON.stringify({ status: 'error', message: 'ClientID existiert nicht' }));
+            if (!data.length) {
+                ws.send(JSON.stringify({ status: 'error', message: 'ClientName existiert nicht' }));
                 return;
             }
 
-            const clientStatus = data[0].status;
-            const clientID = data[0].id;
+            for(let i = 0; i < data.length; i++){
+                clientID = data[i].id;
+                clientName = data[i].name;
+                clientStatus = data[i].client_status;
 
-            //console.log(clientStatus);
-            //console.log("id  " + clientID);
-
-            if (clientStatus == 1) {
-                ws.send(JSON.stringify({ status: 'error', message: 'Neue Client ID eingeben, diese ist schon vergeben' }));
-                return;
+                if (clientStatus == 0) {
+                    break;
+                }
             }
 
-            //console.log(JSON.stringify({ id: clientID, status: 1 }));
+            //console.log("id:" + clientID + ", name:" + clientName + ", status:" + clientStatus);
 
-            // Client als online in der API markieren
-            const responseUpdate = await fetch(`${apiurl}/client/update`, {
+            let file =  JSON.stringify({ id: clientID, client_status: 2314 });
+            //console.log(file);
+
+            //status update
+            const response2 = await fetch(`${apiurl}/client/updateStatus`, {
                 method: 'POST',
-                headers: { 'Client-Status': 'application/json' },
-                body: JSON.stringify({ 'id': clientID, 'status': 1 })
+                headers: { 'Content-Type': 'application/json' },
+                body: file
             });
+            if (!response2.ok) throw new Error("API-Fehler status update");
+            const data2 = await response2.json();
+            //console.log(data2);
 
-            if (!responseUpdate.ok) throw new Error("API-Fehler ClientID");
-            const dataUpdate = await responseUpdate.json();
+            ws.send(JSON.stringify({ status: 'success', clientName: clientName_new, clientID: clientID }));
+            console.log(`Client ${clientName_new} verbunden.`);
 
-            //console.log(dataUpdate);
+            setup();
 
-            // API-Aufruf zur Überprüfung der ClientID
-            const responsenew = await fetch(`${apiurl}/client/getThis?id=${clientID_new}`);
-            if (!responsenew.ok) throw new Error("API-Fehler ClientID");
-            const datanew = await responsenew.json();
-
-            //console.log(datanew[0].status);
-
-
-            ws.send(JSON.stringify({ status: 'success', clientID: clientID_new }));
-            console.log(`Client ${clientID_new} verbunden.`);
-
-            sendPlaylist(ws);
         } catch (error) {
             console.error("Fehler:", error);
             ws.send(JSON.stringify({ status: 'error', message: 'Serverfehler' }));
         }
     });
 
+
     ws.on('close', async () => {
-        console.log("Client getrennt, Status offline");
-        try {
-            await fetch(`${apiurl}/client/update`, {
-                method: 'POST',
-                headers: { 'Client-Status': 'application/json' },
-                body: JSON.stringify({ 'id': clientID, 'status': 0 })
-            });
-        } catch (error) {
-            console.error("Fehler beim Aktualisieren des Status:", error);
+        if (clientID) {
+            console.log(`Client ${clientName} getrennt, Status offline`);
+            try {
+                await fetch(`${apiurl}/client/updateStatus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: clientID, status: 0 })
+                });
+            } catch (error) {
+                console.error("Fehler beim Aktualisieren des Status:", error);
+            }
         }
     });
 });
 
-//ZEITPLAN
 
-async function fetchSchedule(id) {
-    //console.log("ahhh");
+//alle unteren funktionen so aufrufen, dass sie zusammen funktionieren
+//vorbereitungen zum starten der playlist
+function setup(){
+    fetchPlayData().then(next =>{
+        nextPlay = next;
+        wss.clients.forEach(function each(ws) {
+            ws.send(JSON.stringify({
+                action: 'info',
+                nextStart: nextPlay.start
+            }));
+        });
 
-    try {
-        //alle schedules holen
-        const responseSched = await fetch(`${apiurl}/playlist/get?table=play_playlist&limit=30`);
-        const dataSched = await responseSched.json();
+        fetchPlaylistData();
+        fetchClientsData();
 
-        console.log(dataSched);
-        return data[0];
-    } catch (error) {
-        console.error('Error fetching data:', error);
-    }
-
-    //zeitpläne auf welcher der aktuelleste ist (startzeitpunkt)
-
-    // aus nächsten zeitplan mit startzeitpunkt die playlist & clients holen
-
-    //kontrolle zeit, starten der playlist
-    //sendPlaylist();   //in dieser funktion bei api lokale variable mit playlistid aus zeitplan
-
-    //wenn zeitplan 7 tage abgelaufen - zeitplan aus datenbank löschen
+        fetchContainsData(nextPlay.playlist_ID).then(contains =>{
+            saveContent(contains).then(success=>{
+                if(success){
+                    sendPlaylist();
+                }
+            });
+        });
+    });
 }
 
+//sendet playlist daten an clients wenn startzeit erreicht
+async function sendPlaylist() {
+    let index = 0;
 
-// PLAYLIST
-async function sendPlaylist(ws) {
-    try {
-        const response = await fetch(`${apiurl}/playlist/getBy?table=playlist_contains&is=25&where=playlist_ID`);
-        if (!response.ok) throw new Error("Fehler beim Abrufen der Playlist");
-        const playlist = await response.json();
+    //überprüfung wie lange gewartet wird
+    const targetTime = new Date(nextPlay.start).getTime();
+    const delay = targetTime - Date.now();
 
-        console.log(playlist);
+    if (delay <= 0) {
+        console.log("Zeitpunkt bereits erreicht!");
+        callback();
+    } else {
+        console.log(`Warten für ${delay / 1000} Sekunden...`);
+        //warten bis zeitpunkt erreicht
+        setTimeout(loop, delay);
+    }
 
-        if (!playlist || playlist.length == 0) {
-            console.error("KeinePlaylist gefunden");
-            return;
-        }
+    function loop() {
+        if(index < savedContent.length){
 
-        let index = 0;
+            console.log("why so serious");
 
-        function loop() {
+            let content = savedContent[index];
+            let duration = contentDuration[index] * 1000;
 
-            if(index < playlist.length){
-                const duration = 0;
-
-                let play = playlist[index];
-
-                    //console.log(play.content_ID);
-                    
-                    const content_ID = play.content_ID;
-                    
-                    fetchContent(content_ID).then(content => {
-                        //console.log("oben", content.duration);
-
-
-                        if (!content || content == null) {
-                            console.error("Kein COntent gefunden");
-                            return;
-                        }
-                        //console.log("ahhh");
-
-                        let duration = content.duration;
-
-                        console.log("Dur" + duration);
-
-                        //nachricht an script zur anzeige  
-                        let contentAnzeigen = {
-                            action: 'showContent',
-                            contentData: content
-                        };
-
-                        wss.clients.forEach(function each(ws) {
-                            if (ws.readyState === WebSocket.OPEN) {
-                                ws.send(JSON.stringify(contentAnzeigen));
-                            }
-                        });
-
-                    }); 
-
-                    index ++;
-                    
-                setTimeout(loop, duration); 
-
+            if (!content || content == null) {
+                console.error("Kein COntent gefunden");
+                return;
             }
+
+            sendContentOnClients(content);
+
+            index ++;
+
+            setTimeout(loop, duration);
         }
-        loop();
-    } catch (error) {
-        console.error('Fehler beim Abrufen der Playlist:', error);
+        else{
+            reset();
+        }
     }
 }
-async function fetchContent(id) {
-    //console.log("ahhh");
 
+//holt daten auf welchen clients die playlist angezeigt wird und speichert diese in array
+function fetchClientsData(){
+    req = apiurl + "/playlist/getBy?table=plays_on&where=play_ID&is=" + nextPlay.id;
+
+    fetch(req)
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(data => {
+            for(let i = 0; i < data.length; i++){
+                playClients[i] = data[i].client_ID;
+            }
+        })
+        .catch(error => console.error('Error fetching data:', error));
+}
+
+//holt playlist daten und speichert diese in playlistData
+function fetchPlaylistData() {
+    let req = apiurl + "/playlist/getThis?table=playlist&id=" + nextPlay.playlist_ID;
+
+    fetch(req)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                playlistData = data[0];
+
+                wss.clients.forEach(function each(ws) {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            action: 'info',
+                            playlistName: playlistData.name,
+                        }));
+                    }
+                });
+
+
+            })
+            .catch(error => console.error('Error fetching data:', error));
+}
+
+//zugriff auf PlayPlaylist daten per API und setzten von nextplay auf nächte NICHT abgelaufene Startzeit
+async function fetchPlayData() {
+    const time = Date.now();
+    const req = apiurl + "/playlist/get?table=play_playlist&by=start&limit=100";
+
+    try {
+        const response = await fetch(req);
+        const data = await response.json();
+        let next = null;
+        //console.log(data);
+
+        data.map(play =>{
+            if(!next){
+                const dateString = play.start;
+                const timestamp = new Date(dateString).getTime();
+
+                const isExpired = time > timestamp;
+
+                if(!isExpired)
+                    next=play;
+                console.log(isExpired ? "Abgelaufen" : "Noch gültig");
+            }
+        });
+        return next;
+    } catch (error) {
+        console.error('Error fetching Contains data:', error);
+    }
+}
+
+//holt informationen welchen content die playlist enthält geordnet nach 'arrangement' (übergabe: playlist id)
+async function fetchContainsData(id){
+    try {
+        const response = await fetch(`${apiurl}/playlist/getByOrder?table=playlist_contains&by=arrangement&where=playlist_ID&is=${id}`);
+        const data = await response.json();
+        //console.log(data);
+        return data;
+    } catch (error) {
+        console.error('Error fetching Contains data:', error);
+    }
+}
+
+//speichert die contentdaten in ein globales Array, speichert angegebene duration in array
+async function saveContent(contains) {
+    for(let i = 0; i < contains.length; i++){
+        await fetchContentData(contains[i].content_ID).then(content =>{
+            savedContent[i] = content;
+            contentDuration[i] = contains[i].duration;
+        })
+    }
+
+    //console.log("content ", savedContent);
+    console.log("dur ", contentDuration);
+
+    return true;
+}
+
+//holt content datetn pre api und liefert per return zurück (übergabe: content id)
+async function fetchContentData(id) {
     try {
         const response = await fetch(`${apiurl}/content/getThis?id=` + id);
         const data = await response.json();
@@ -198,6 +278,49 @@ async function fetchContent(id) {
     } catch (error) {
         console.error('Error fetching data:', error);
     }
+}
+
+//schickt die contentdaten an die clients (übergabe: content)
+function sendContentOnClients(content){
+    //nachricht an script zur anzeige
+    let contentAnzeigen = {
+        action: 'showContent',
+        contentData: content,
+        clients: playClients
+    };
+
+    wss.clients.forEach(function each(ws) {
+
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(contentAnzeigen));
+        }
+    });
+}
+
+//setzt alles zurück und schickt aufforerung auf reset zu client
+function reset(){
+    console.log("reset");
+
+    playClients = [];
+
+    savedContent = [];
+    contentDuration = [];
+
+    nextPlay = null;
+
+    playlistData = null;
+
+    let resetMessage = {
+        action: 'reset'
+    };
+
+    wss.clients.forEach(function each(ws) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(resetMessage));
+        }
+    });
+
+    setup();
 }
 
 server.listen(port, hostname, () => {
