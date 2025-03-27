@@ -6,7 +6,7 @@ let nextStart = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
-    socket = new WebSocket('ws://192.168.2.209:3000');
+    socket = new WebSocket('ws://192.168.100.44:3000');
     socket.onopen = () => {
         console.log('Connected to the WebSocket server');
     };
@@ -39,10 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (message.action === 'showContent') {
-
             if(message.clients.includes(clientID)){
-                console.log("absdvnsduiovho");
-                console.log(clientID);
                 if(message.contentData.type.includes("image")){
 
                     console.log("image");
@@ -54,9 +51,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         } else if (message.action === 'showClientInfo') {
-            showClientInfo();
+            showClientInfo();           
         }  else if (message.action === 'info') {
-            console.log("info " + playlistName + " s : " +nextStart);
+            
             if(message.playlistName && !playlistName)
                 playlistName = message.playlistName;
             if(message.nextStart && !nextStart)
@@ -76,7 +73,11 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     document.getElementById('sendButton').onclick = function () {
+
         const enteredName = document.getElementById('name').value;
+
+        console.log("Available Width: " + screen.availWidth);
+        console.log("Available Height: " + screen.availHeight);
 
         if (!enteredName) {
             alert("Bitte einen ClientName eingeben!");
@@ -84,7 +85,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (socket.readyState === WebSocket.OPEN) {
-            const message = { clientName_new: enteredName };
+            const message = { 
+                clientName_new: enteredName,
+                width: screen.availWidth,
+                height: screen.availHeight
+             };
             socket.send(JSON.stringify(message));
             console.log("Client-Name gesendet:", enteredName);
         } else {
@@ -92,8 +97,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    function showClientInfo(message) {
-
+    function showClientInfo() {
+    
         console.log("Clientid & name", clientID, clientName);
 
         let content = document.querySelector("#content");
@@ -135,19 +140,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function showVideo(message) {
-
+    
         let content = document.querySelector("#content");
         content.classList.remove("hidden");
         content.innerHTML = ""; // Vorherigen Inhalt löschen
-
+    
         let video = document.createElement("video");
         video.src = message.contentData.data;
         video.autoplay = true; // Startet automatisch
         video.loop = true; // Optional: Wiederholt das Video
         video.classList.add("video-fluid");
-
+    
         content.appendChild(video);
     }
-
-
 });
