@@ -39,9 +39,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (message.action === 'showContent') {
-            if(message.clients.includes(clientID)){
-                if(message.contentData.type.includes("image")){
+            if((message.clients.includes(clientID) || message.default == true) && clientID != null){
 
+                console.log("play");
+                if(message.contentData.type.includes("image")){
                     console.log("image");
                     showImage(message);
                 } else if(message.contentData.type.includes("video")){

@@ -21,12 +21,22 @@ app.get('/', (req, res) => {
 
 var playClients = [];
 
+var nextPlay = null;
+var playlistData = null;
 var savedContent = [];
 var contentDuration = [];
 
-var nextPlay = null;
- 
-var playlistData = null;
+
+var defaultPlay = null;
+var defaultPlaylistData = null;
+var playDefault = false;
+var defaultContent = [];
+var defaultContentDuration = [];
+
+var isSending = false;
+let timeoutId = null;
+var index = 0;
+
 
 wss.on('connection', async function connection(ws) {
 
@@ -142,6 +152,8 @@ function setup(){
     fetchPlayData().then(next =>{   //play playlist data => nächste zu spielende playlist
 
         nextPlay = next;
+        playDefault = false;
+
         //überprüfung wie lange gewartet wird
         const targetTime = new Date(nextPlay.start).getTime();
         const delay = targetTime - Date.now();
@@ -150,8 +162,10 @@ function setup(){
         if(delay > 300000){
             console.log("zu lange");
             setTimeout(setup, 60000);
-        }
-        else{
+            nextPlay = defaultPlay;
+            playDefault = true;
+            sendPlaylist();
+        } else{
             wss.clients.forEach(function each(ws) {
                 ws.send(JSON.stringify({ 
                     action: 'info', 
@@ -163,24 +177,34 @@ function setup(){
             fetchClientsData();         //clientdaten aus plays_on mit play_id von playplaylist
 
             fetchContainsData(nextPlay.playlist_ID).then(contains =>{       //content aus playlistcontains
-                saveContent(contains).then(success=>{                       //dann content aus content-table holen und in array speichern
+                saveContent(contains, savedContent, contentDuration).then(success=>{                       //dann content aus content-table holen und in array speichern
                     if(success){
                         sendPlaylist();                                     //playlist senden (warten zum startzeitpunkt)
                     }
                 });
             });
         }
-        
     });
 }
 
 //sendet playlist daten an clients wenn startzeit erreicht
 async function sendPlaylist() {
-    let index = 0;
-
     //überprüfung wie lange gewartet wird
     const targetTime = new Date(nextPlay.start).getTime();
-    const delay = targetTime - Date.now();
+    let delay = targetTime - Date.now();
+
+    let playContent = savedContent;
+    let playDuration = contentDuration;
+
+    //wenn defaultPlay gespiel wird -> 1/10 sec verzögerung
+    if(nextPlay == defaultPlay){
+        console.log("default");
+        delay = 100;
+        playContent = defaultContent;
+        playDuration = defaultContentDuration;
+    }
+
+    console.log(delay);
 
     if (delay <= 0) {
         console.log("Zeitpunkt bereits erreicht!");
@@ -188,14 +212,21 @@ async function sendPlaylist() {
     } else {
         console.log(`Warten für ${delay / 1000} Sekunden...`);
         //warten bis zeitpunkt erreicht
-        setTimeout(loop, delay);
+        isSending = true;
+        index = 0;
+        if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
+        timeoutId = setTimeout(loop, delay);
     }
 
     function loop() {
-        if(index < savedContent.length){
+        if (!isSending) return; // Verhindert, dass mehrere Instanzen starten
 
-            let content = savedContent[index];
-            let duration = contentDuration[index] * 1000;
+        if(index < playContent.length){
+
+            console.log("index: " + index + ": "+ playDuration[index]);
+
+            let content = playContent[index];
+            let duration = playDuration[index] * 1000;
 
             if (!content || content == null) {
                 console.error("Kein COntent gefunden");
@@ -206,7 +237,8 @@ async function sendPlaylist() {
         
             index ++;
 
-            setTimeout(loop, duration);
+            if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
+            timeoutId = setTimeout(loop, duration);
         }
         else{
             reset();
@@ -251,8 +283,6 @@ function fetchPlaylistData() {
                         }));
                     }
                 });
-
-                
             })
             .catch(error => console.error('Error fetching data:', error));
 }
@@ -328,16 +358,16 @@ async function fetchContainsData(id){
 }
 
 //speichert die contentdaten in ein globales Array, speichert angegebene duration in array
-async function saveContent(contains) {
+async function saveContent(contains, contentArray, durationArray) {
     for(let i = 0; i < contains.length; i++){
         await fetchContentData(contains[i].content_ID).then(content =>{
-            savedContent[i] = content;
-            contentDuration[i] = contains[i].duration;
+            contentArray[i] = content;
+            durationArray[i] = contains[i].duration;
         })
     }
 
-    console.log("content ", savedContent);
-    console.log("durattion ", contentDuration);
+    console.log("content ", contentArray);
+    console.log("durattion ", durationArray);
 
     return true;
 }
@@ -359,6 +389,7 @@ function sendContentOnClients(content){
     //nachricht an script zur anzeige
     let contentAnzeigen = {
         action: 'showContent',
+        default: playDefault,
         contentData: content,
         clients: playClients
     };
@@ -376,6 +407,9 @@ function sendContentOnClients(content){
 function reset(){
     console.log("reset");
 
+    if (timeoutId) clearTimeout(timeoutId); // Bereinige aktiven Timeout
+    timeoutId = null;
+
     playClients = [];
 
     savedContent = [];
@@ -384,6 +418,9 @@ function reset(){
     nextPlay = null;
     
     playlistData = null;
+
+    isSending = false;
+    index = 0;
 
     let resetMessage = {
         action: 'reset'
@@ -400,5 +437,45 @@ function reset(){
 
 server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);
-    setup();
+    fetchDefault()
 });
+
+
+async function fetchDefault() {
+    try {
+        const response = await fetch(`${apiurl}/playlist/getThis?table=play_playlist&id=1`);
+        const data = await response.json();
+        console.log(data);
+        defaultPlay = data[0];
+
+        fetchDefaultPlaylistData();
+        fetchDefaultContentData();
+
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+async function fetchDefaultPlaylistData() {
+    let req = apiurl + "/playlist/getThis?table=playlist&id=" + defaultPlay.playlist_ID;
+
+    const response = await fetch(req);
+    if (!response.ok) throw new Error("API-Fehler ClientName");
+    const data = await response.json();
+
+    defaultPlaylistData = data[0];
+}
+
+
+function fetchDefaultContentData(){
+
+
+    fetchContainsData(defaultPlay.playlist_ID).then(contains =>{       //content aus playlistcontains
+        saveContent(contains, defaultContent, defaultContentDuration).then(success=>{                       //dann content aus content-table holen und in array speichern
+            if(success){
+                setup();                                   //playlist senden (warten zum startzeitpunkt)
+            }
+        });
+    });
+
+}
