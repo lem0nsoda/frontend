@@ -40,7 +40,7 @@ body {
 }
 
 #sendButton:hover {
-    background-color: #002a4b;
+    background-color: #011a2e;
 }
 
 #content {
@@ -65,12 +65,18 @@ body {
     background-color: #003563;
     color: white;
     border-radius: 6px;
-    width: 120px;
-    height: 40px;
+    width: 100px;
+    height: 35px;
     font-size: 16px;
     border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    text-align: center;   
 }
 
 #userInterfaceButton:hover {
-    background-color: #002a4b;
+    background-color: #011a2e;
 }
+
