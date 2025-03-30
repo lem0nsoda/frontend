@@ -11,12 +11,19 @@ const port = 3000;
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+
+const BASE_URL = 'http://192.168.100.44:3000'; // Anpassen, falls der Server woanders läuft
+
 const apiurl = "https://digital-signage.htl-futurezone.at/api/index.php";
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/api/timestamp', (req, res) => {
+    res.json({ timestamp: Date.now() });
 });
 
 var playClients = [];
@@ -43,6 +50,8 @@ wss.on('connection', async function connection(ws) {
     //CLIENTID
     let clientID = null;
     let clientName = null;
+    let clientX = null;
+    let clientY = null;
 
     ws.on('message', async function incoming(message) {
         try {
@@ -50,6 +59,8 @@ wss.on('connection', async function connection(ws) {
             let clientName_new = parsedMessage.clientName_new;
             let client_height = parsedMessage.height;
             let client_width = parsedMessage.width;
+            clientX = parsedMessage.xPosition;
+            clientY = parsedMessage.yPosition;
 
             const response = await fetch(`${apiurl}/client/getBy?table=client&where=name&is=${clientName_new}`);
             if (!response.ok) throw new Error("API-Fehler ClientName");
@@ -117,7 +128,7 @@ wss.on('connection', async function connection(ws) {
             const data2 = await response2.json();
             console.log(data2);
 
-            ws.send(JSON.stringify({ status: 'success', clientName: clientName_new, clientID: clientID }));
+            ws.send(JSON.stringify({ status: 'success', clientName: clientName_new, clientID: clientID}));
             console.log(`Client ${clientName_new} verbunden.`);
 
             setup();
@@ -145,58 +156,84 @@ wss.on('connection', async function connection(ws) {
     });
 });
 
-
 //alle unteren funktionen so aufrufen, dass sie zusammen funktionieren 
 //vorbereitungen zum starten der playlist
 function setup(){
-    fetchPlayData().then(next =>{   //play playlist data => nächste zu spielende playlist
+    fetchPlayData().then(next => {   //play playlist data => nächste zu spielende playlist
 
         nextPlay = next;
         playDefault = false;
 
-        //überprüfung wie lange gewartet wird
-        const targetTime = new Date(nextPlay.start).getTime();
-        const delay = targetTime - Date.now();
 
-        //wenn delay länger als 5min dauert -> in 1 min nochmal probieren
-        if(delay > 300000){
-            console.log("zu lange");
-            setTimeout(setup, 60000);
-            nextPlay = defaultPlay;
-            playDefault = true;
-            sendPlaylist();
-        } else{
-            wss.clients.forEach(function each(ws) {
-                ws.send(JSON.stringify({ 
-                    action: 'info', 
-                    nextStart: nextPlay.start
-                }));
-            });
+        // Timestamp-Request
+        fetch(`${BASE_URL}/api/timestamp`)
+            .then(response => response.json())
+            .then(data => {
+                const serverTime = data.timestamp;
+                console.log("Server-Zeit: ", serverTime);
 
-            fetchPlaylistData();        //playlistdaten der ausgewählten playlist
-            fetchClientsData();         //clientdaten aus plays_on mit play_id von playplaylist
+                const targetTime = new Date(nextPlay.start).getTime();
+                const delay = targetTime - serverTime;
 
-            fetchContainsData(nextPlay.playlist_ID).then(contains =>{       //content aus playlistcontains
-                saveContent(contains, savedContent, contentDuration).then(success=>{                       //dann content aus content-table holen und in array speichern
-                    if(success){
-                        sendPlaylist();                                     //playlist senden (warten zum startzeitpunkt)
-                    }
-                });
-            });
-        }
+                // Wenn delay länger als 5min dauert -> in 1 min nochmal probieren
+                if(delay > 300000){
+                    console.log("zu lange");
+                    setTimeout(setup, 60000);
+                    nextPlay = defaultPlay;
+                    playDefault = true;
+                    sendPlaylist();
+                } else{
+                    wss.clients.forEach(function each(ws) {
+                        ws.send(JSON.stringify({ 
+                            action: 'info', 
+                            nextStart: nextPlay.start
+                        }));
+                    });
+        
+                    fetchPlaylistData();        //playlistdaten der ausgewählten playlist
+                    fetchClientsData();         //clientdaten aus plays_on mit play_id von playplaylist
+        
+                    fetchContainsData(nextPlay.playlist_ID).then(contains =>{       //content aus playlistcontains
+                        saveContent(contains, savedContent, contentDuration).then(success=>{                       //dann content aus content-table holen und in array speichern
+                            if(success){
+                                sendPlaylist();                                     //playlist senden (warten zum startzeitpunkt)
+                            }
+                        })
+                    })
+                }
+                
+            })
+            .catch(error => console.error("Fehler beim Abrufen des Server-Timestamps:", error));
+            
     });
 }
 
 //sendet playlist daten an clients wenn startzeit erreicht
 async function sendPlaylist() {
-    //überprüfung wie lange gewartet wird
+    // Timestamp-Request
+    const response = await fetch(`${BASE_URL}/api/timestamp`);
+    const data = await response.json();
+    const serverTime = Number(data.timestamp);
+
+    if (isNaN(serverTime)) {
+        console.error("Ungültiger Zeitstempel vom Server:", data.timestamp);
+        return;
+    }
+
+    if (!nextPlay?.start || isNaN(new Date(nextPlay.start).getTime())) {
+        console.error("Ungültige Startzeit:", nextPlay?.start);
+        return;
+    }
+
+
+    // Überprüfung wie lange gewartet wird
     const targetTime = new Date(nextPlay.start).getTime();
-    let delay = targetTime - Date.now();
+    let delay = targetTime - serverTime;
 
     let playContent = savedContent;
     let playDuration = contentDuration;
 
-    //wenn defaultPlay gespiel wird -> 1/10 sec verzögerung
+    // Wenn defaultPlay gespielt wird -> 1/10 sec Verzögerung
     if(nextPlay == defaultPlay){
         console.log("default");
         delay = 100;
@@ -204,13 +241,12 @@ async function sendPlaylist() {
         playDuration = defaultContentDuration;
     }
 
-    console.log(delay);
+    console.log("delay: "+delay);
 
     if (delay <= 0) {
         console.log("Zeitpunkt bereits erreicht!");
         callback();
     } else {
-        console.log(`Warten für ${delay / 1000} Sekunden...`);
         //warten bis zeitpunkt erreicht
         isSending = true;
         index = 0;
@@ -222,8 +258,7 @@ async function sendPlaylist() {
         if (!isSending) return; // Verhindert, dass mehrere Instanzen starten
 
         if(index < playContent.length){
-
-            console.log("index: " + index + ": "+ playDuration[index]);
+            //console.log("index: " + index + ": " + playDuration[index]);
 
             let content = playContent[index];
             let duration = playDuration[index] * 1000;
@@ -234,13 +269,14 @@ async function sendPlaylist() {
             }
 
             sendContentOnClients(content);
-        
+            
             index ++;
 
             if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
             timeoutId = setTimeout(loop, duration);
-        }
-        else{
+
+        } 
+        else {
             reset();
         }
     }
@@ -395,8 +431,6 @@ function sendContentOnClients(content){
     };
 
     wss.clients.forEach(function each(ws) {
-        console.log(ws.clientID + " : " + ws.clientName);
-
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(contentAnzeigen));
         }

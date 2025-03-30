@@ -1,8 +1,13 @@
 let socket;
 let clientID = null;
 let clientName = null;
+let clientX = null;
+let clientY = null;
+
 let playlistName = null;
 let nextStart = null;
+
+let userInterfaceButton = document.querySelector("#userInterfaceButton");
 
 document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
@@ -22,6 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (message.status === 'success') {
             clientName = message.clientName;
             console.log('Client-Name registriert:', clientName);
+            console.log('Client-Name registriert:', clientX);
 
             // Eingabefeld ausblenden
             document.getElementById("clientInput").style.display = "none";
@@ -31,6 +37,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 clientID = message.clientID;
             if(!clientName)
                 clientName = message.clientName;
+            if(!clientX)
+                clientX = message.clientX;
+            if(!clientY)
+                clientY = message.clientY;
 
             showClientInfo();
 
@@ -40,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (message.action === 'showContent') {
             if((message.clients.includes(clientID) || message.default == true) && clientID != null){
-
+                userInterfaceButton.setAttribute("class", "hidden");
                 console.log("play");
                 if(message.contentData.type.includes("image")){
                     console.log("image");
@@ -52,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         } else if (message.action === 'showClientInfo') {
+            
             showClientInfo();           
         }  else if (message.action === 'info') {
             
@@ -99,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function showClientInfo() {
+        userInterfaceButton.setAttribute("class", "btn btn-primary shown");
     
         console.log("Clientid & name", clientID, clientName);
 
@@ -136,6 +148,9 @@ document.addEventListener('DOMContentLoaded', function () {
         img.src = message.contentData.data;
         img.alt = "Playlist-Inhalt";
         img.classList.add("img-fluid");
+        img.classList.add("fullscreen-image");
+        
+        img.classList.add("varschieben");
 
         content.appendChild(img);
     }
