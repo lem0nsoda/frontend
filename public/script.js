@@ -26,8 +26,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (message.status === 'success') {
             clientName = message.clientName;
+            
             console.log('Client-Name registriert:', clientName);
-            console.log('Client-Name registriert:', clientX);
+            console.log('Message:', message.message);
 
             // Eingabefeld ausblenden
             document.getElementById("clientInput").style.display = "none";
@@ -111,8 +112,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function showClientInfo() {
         userInterfaceButton.setAttribute("class", "btn btn-primary shown");
-    
-        console.log("Clientid & name", clientID, clientName);
 
         let content = document.querySelector("#content");
         content.classList.remove("hidden");
@@ -127,6 +126,10 @@ document.addEventListener('DOMContentLoaded', function () {
         let clientNameText = document.createElement("p");
         clientNameText.innerText = "Name: " + clientName;
 
+        
+        let clientPositionText = document.createElement("p");
+        clientPositionText.innerText = "Position: " + clientX + " x " + clientY;
+
         if(playlistName && nextStart){
             let clientStartText = document.createElement("p");
             clientStartText.innerText = "Next Playlist " + playlistName + " Start: " + nextStart;
@@ -135,6 +138,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         infoDiv.appendChild(clientIdText);
         infoDiv.appendChild(clientNameText);
+        infoDiv.appendChild(clientPositionText);
         content.appendChild(infoDiv);
     }
 

@@ -59,8 +59,8 @@ wss.on('connection', async function connection(ws) {
             let clientName_new = parsedMessage.clientName_new;
             let client_height = parsedMessage.height;
             let client_width = parsedMessage.width;
-            clientX = parsedMessage.xPosition;
-            clientY = parsedMessage.yPosition;
+            clientX = 0;
+            clientY = 0;
 
             const response = await fetch(`${apiurl}/client/getBy?table=client&where=name&is=${clientName_new}`);
             if (!response.ok) throw new Error("API-Fehler ClientName");
@@ -70,7 +70,9 @@ wss.on('connection', async function connection(ws) {
                 var client = JSON.stringify({ 
                     name: clientName_new, 
                     width: client_width, 
-                    height: client_height 
+                    height: client_height,
+                    xPosition: clientX,
+                    yPosition: clientY
                 });
 
                 const responseAdd = await fetch(`${apiurl}/client/add`, {
@@ -90,6 +92,8 @@ wss.on('connection', async function connection(ws) {
                 if(data[0].client_status === 0 || data[0].client_status == null){
                     clientID = data[0].id;
                     clientName = data[0].name;
+                    clientX = data[0].xPosition;
+                    clientY = data[0].yPosition;
                 }
                 else{
                     ws.send(JSON.stringify({ status: 'error', message: 'ClientName schon vergeben' }));
@@ -128,7 +132,7 @@ wss.on('connection', async function connection(ws) {
             const data2 = await response2.json();
             console.log(data2);
 
-            ws.send(JSON.stringify({ status: 'success', clientName: clientName_new, clientID: clientID}));
+            ws.send(JSON.stringify({ status: 'success', clientX: clientX, clientY: clientY, clientName: clientName_new, clientID: clientID}));
             console.log(`Client ${clientName_new} verbunden.`);
 
             setup();
