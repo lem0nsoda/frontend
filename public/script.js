@@ -6,8 +6,10 @@ let clientY = null;
 
 let playlistName = null;
 let nextStart = null;
+let isExtended = null;
 
-let userInterfaceButton = document.querySelector("#userInterfaceButton");
+const userInterfaceButton = document.querySelector("#userInterfaceButton");
+const content = document.querySelector("#content");
 
 document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
@@ -51,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (message.action === 'showContent') {
             if((message.clients.includes(clientID) || message.default == true) && clientID != null){
+                isExtended = message.extended;
                 userInterfaceButton.setAttribute("class", "hidden");
                 console.log("play");
                 if(message.contentData.type.includes("image")){
@@ -89,9 +92,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const enteredName = document.getElementById('name').value;
 
-        console.log("Available Width: " + screen.availWidth);
-        console.log("Available Height: " + screen.availHeight);
+        //console.log("Available Width: " + screen.availWidth);
+        //console.log("Available Height: " + screen.availHeight);
 
+        console.log("Window Width: " + window.innerWidth);
+        console.log("Window Height: " + window.innerHeight);
         if (!enteredName) {
             alert("Bitte einen ClientName eingeben!");
             return;
@@ -100,8 +105,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (socket.readyState === WebSocket.OPEN) {
             const message = { 
                 clientName_new: enteredName,
-                width: screen.availWidth,
-                height: screen.availHeight
+                //width: screen.availWidth,
+                //height: screen.availHeight
+                width: window.innerWidth,
+                height: window.innerHeight
              };
             socket.send(JSON.stringify(message));
             console.log("Client-Name gesendet:", enteredName);
@@ -142,30 +149,50 @@ document.addEventListener('DOMContentLoaded', function () {
         content.appendChild(infoDiv);
     }
 
+    function getContentWidth(content){
+        //faktor mit dem content vergrößert/klienert ist. 
+        let faktor = 1 / content.height * window.innerHeight;
+
+        return faktor * content.width;
+    }
+
     function showImage(message) {
 
-        let content = document.querySelector("#content");
         content.classList.remove("hidden");
         content.innerHTML = "";
+        let x = 0;
 
         let img = document.createElement("img");
+        if(isExtended){
+            if(clientX == 0 && clientY == 0){
+                x = window.innerWidth - (getContentWidth(message.contentData) / 2);
+            }else{
+                x = getContentWidth(message.contentData) / 2 * (-1);
+            }
+
+            console.log("x: " + x);
+            img.style.objectPosition = `${x}px ${clientY}px`;
+            img.style.height = `100vh`;
+        }else{
+            
+        }
         img.src = message.contentData.data;
         img.alt = "Playlist-Inhalt";
         img.classList.add("img-fluid");
         img.classList.add("fullscreen-image");
-        
-        img.classList.add("varschieben");
 
         content.appendChild(img);
     }
 
     function showVideo(message) {
-    
-        let content = document.querySelector("#content");
         content.classList.remove("hidden");
         content.innerHTML = ""; // Vorherigen Inhalt löschen
     
         let video = document.createElement("video");
+        if(isExtended){
+
+            video.style.objectPosition = `${clientX}px ${clientY}px`;
+        }
         video.src = message.contentData.data;
         video.autoplay = true; // Startet automatisch
         video.loop = true; // Optional: Wiederholt das Video

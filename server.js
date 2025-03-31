@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 
-const BASE_URL = 'http://192.168.100.44:3000'; // Anpassen, falls der Server woanders läuft
+const BASE_URL = 'http://192.168.100.44:3000';
 
 const apiurl = "https://digital-signage.htl-futurezone.at/api/index.php";
 
@@ -32,6 +32,7 @@ var nextPlay = null;
 var playlistData = null;
 var savedContent = [];
 var contentDuration = [];
+var isExtended = null;
 
 
 var defaultPlay = null;
@@ -83,7 +84,6 @@ wss.on('connection', async function connection(ws) {
 
                 if (!responseAdd.ok) throw new Error("API-Fehler status update");
                 const added = await responseAdd.json();
-                console.log(added);
 
                 clientID = added.newID;
                 clientName = clientName_new;  
@@ -115,12 +115,10 @@ wss.on('connection', async function connection(ws) {
 
             if (!responseUpdate.ok) throw new Error("API-Fehler status update");
             const updated = await responseUpdate.json();
-            console.log(updated);
 
             console.log("id:" + clientID + ", name:" + clientName );
 
             let file =  JSON.stringify({ id: clientID, client_status: 1 });
-            console.log(file);
 
             //status update
             const response2 = await fetch(`${apiurl}/client/updateStatus`, {
@@ -130,7 +128,6 @@ wss.on('connection', async function connection(ws) {
             });
             if (!response2.ok) throw new Error("API-Fehler status update");
             const data2 = await response2.json();
-            console.log(data2);
 
             ws.send(JSON.stringify({ status: 'success', clientX: clientX, clientY: clientY, clientName: clientName_new, clientID: clientID}));
             console.log(`Client ${clientName_new} verbunden.`);
@@ -166,7 +163,10 @@ function setup(){
     fetchPlayData().then(next => {   //play playlist data => nächste zu spielende playlist
 
         nextPlay = next;
+        isExtended = nextPlay.extended;
         playDefault = false;
+
+        console.log("hieeerrrrrrrrr: " + isExtended);
 
 
         // Timestamp-Request
@@ -182,7 +182,6 @@ function setup(){
                 // Wenn delay länger als 5min dauert -> in 1 min nochmal probieren
                 if(delay > 300000){
                     console.log("zu lange");
-                    setTimeout(setup, 60000);
                     nextPlay = defaultPlay;
                     playDefault = true;
                     sendPlaylist();
@@ -237,15 +236,17 @@ async function sendPlaylist() {
     let playContent = savedContent;
     let playDuration = contentDuration;
 
-    // Wenn defaultPlay gespielt wird -> 1/10 sec Verzögerung
-    if(nextPlay == defaultPlay){
+    // Wenn defaultPlay gespielt wird -> 1/100 sec Verzögerung
+    if(nextPlay == defaultPlay || delay > (defaultPlaylistData.duration ) * 1000){
         console.log("default");
-        delay = 100;
+        playDefault = true;
+        isExtended = 0;
+        delay = 10;
         playContent = defaultContent;
         playDuration = defaultContentDuration;
     }
 
-    console.log("delay: "+delay);
+    console.log("delay: " + delay);
 
     if (delay <= 0) {
         console.log("Zeitpunkt bereits erreicht!");
@@ -336,7 +337,6 @@ async function fetchPlayData() {
         const response = await fetch(req);
         const data = await response.json();
         let next = null;
-        console.log(data);
 
         data.map(play =>{
             if(!next){
@@ -350,7 +350,7 @@ async function fetchPlayData() {
                 //wenn älter als 7 tage -> löschen
                 if(isOlderThan7Days){
                     console.log("older");
-                    console.log(play.id);
+                    console.log(play.id + "is getting deleted");
                     
                     const reqDel = apiurl + "/playlist/delete";
                     const bodyDel = {
@@ -376,7 +376,7 @@ async function fetchPlayData() {
                 if(!isExpired)
                     next=play;
 
-                console.log(isExpired ? "Abgelaufen" : "Noch gültig");
+                console.log(isExpired ? play.id + " Abgelaufen" : play.id + " Noch gültig");
             }
         });
         return next;
@@ -390,7 +390,6 @@ async function fetchContainsData(id){
     try {
         const response = await fetch(`${apiurl}/playlist/getByOrder?table=playlist_contains&by=arrangement&where=playlist_ID&is=${id}`);
         const data = await response.json();
-        console.log(data);
         return data;
     } catch (error) {
         console.error('Error fetching Contains data:', error);
@@ -406,8 +405,8 @@ async function saveContent(contains, contentArray, durationArray) {
         })
     }
 
-    console.log("content ", contentArray);
-    console.log("durattion ", durationArray);
+   // console.log("content ", contentArray);
+   // console.log("durattion ", durationArray);
 
     return true;
 }
@@ -417,7 +416,7 @@ async function fetchContentData(id) {
     try {
         const response = await fetch(`${apiurl}/content/getThis?id=` + id);
         const data = await response.json();
-        console.log(data);
+        //console.log(data);
         return data[0];
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -431,7 +430,8 @@ function sendContentOnClients(content){
         action: 'showContent',
         default: playDefault,
         contentData: content,
-        clients: playClients
+        clients: playClients,
+        extended: isExtended
     };
 
     wss.clients.forEach(function each(ws) {
@@ -452,6 +452,7 @@ function reset(){
 
     savedContent = [];
     contentDuration = [];
+    isExtended = 0;
 
     nextPlay = null;
     
@@ -483,7 +484,7 @@ async function fetchDefault() {
     try {
         const response = await fetch(`${apiurl}/playlist/getThis?table=play_playlist&id=1`);
         const data = await response.json();
-        console.log(data);
+        //console.log(data);
         defaultPlay = data[0];
 
         fetchDefaultPlaylistData();
@@ -503,7 +504,6 @@ async function fetchDefaultPlaylistData() {
 
     defaultPlaylistData = data[0];
 }
-
 
 function fetchDefaultContentData(){
 
