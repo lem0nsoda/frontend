@@ -182,7 +182,7 @@ function setup(){
                 const targetTime = new Date(nextPlay.start).getTime();
                 const delay = targetTime - serverTime;
 
-                // Wenn delay länger als 5min dauert -> in 1 min nochmal probieren
+                // Wenn delay länger als 5min dauert -> default
                 if(delay > 300000){
                     console.log("zu lange");
                     nextPlay = defaultPlay;
@@ -231,7 +231,6 @@ async function sendPlaylist() {
         return;
     }
 
-
     // Überprüfung wie lange gewartet wird
     const targetTime = new Date(nextPlay.start).getTime();
     let delay = targetTime - serverTime;
@@ -240,7 +239,7 @@ async function sendPlaylist() {
     let playDuration = contentDuration;
 
     // Wenn defaultPlay gespielt wird -> 1/100 sec Verzögerung
-    if(nextPlay == defaultPlay || delay > (defaultPlaylistData.duration + 2) * 1000){
+    if(playDefault || nextPlay == defaultPlay || delay > (defaultPlaylistData.duration + 2) * 1000){
         console.log("default");
         playDefault = true;
         isExtended = 0;
@@ -274,7 +273,7 @@ async function sendPlaylist() {
                 let duration = playDuration[index] * 1000;
 
                 if (!content || content == null) {
-                    console.error("Kein COntent gefunden");
+                    console.error("Kein Content gefunden");
                     return;
                 }
 
@@ -495,7 +494,6 @@ server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);
     fetchDefault()
 });
-
 
 async function fetchDefault() {
     try {
