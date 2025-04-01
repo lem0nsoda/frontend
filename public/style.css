@@ -71,11 +71,11 @@ body {
     font-size: 16px;
     border: none;
     cursor: pointer;
-    align-items: center; 
-    justify-content: center; 
+    align-items: center;
+    justify-content: center;
     text-align: center;   
 }
-
+ 
 #userInterfaceButton:hover {
     background-color: #011a2e;
 }

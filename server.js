@@ -6,13 +6,13 @@ const fs = require('fs');
 const mime = require('mime-types');
 
 const app = express();
-const hostname = '192.168.100.44';
+const hostname = '10.13.243.25';
 const port = 3000;
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 
-const BASE_URL = 'http://192.168.100.44:3000';
+const BASE_URL = 'http://10.13.243.25:3000';
 
 const apiurl = "https://digital-signage.htl-futurezone.at/api/index.php";
 
@@ -247,10 +247,10 @@ async function sendPlaylist() {
     }
 
     console.log("delay: " + delay);
-
-    if (delay <= 0) {
+    //differnz von 1/10 sec wird akzeptiert
+    if (delay <= -100) {
         console.log("Zeitpunkt bereits erreicht!");
-        callback();
+        reset();
     } else {
         //warten bis zeitpunkt erreicht
         isSending = true;

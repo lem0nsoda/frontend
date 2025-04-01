@@ -10,10 +10,11 @@ let isExtended = null;
 
 const userInterfaceButton = document.querySelector("#userInterfaceButton");
 const content = document.querySelector("#content");
+const body = document.querySelector('#anzeige');
 
 document.addEventListener('DOMContentLoaded', function () {
     // WebSocket-Verbindung herstellen
-    socket = new WebSocket('ws://192.168.100.44:3000');
+    socket = new WebSocket('ws://10.13.243.25:3000');
     socket.onopen = () => {
         console.log('Connected to the WebSocket server');
     };
@@ -55,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if((message.clients.includes(clientID) || message.default == true) && clientID != null){
                 isExtended = message.extended;
                 userInterfaceButton.setAttribute("class", "hidden");
+                body.style.background = `black`;
                 console.log("play");
                 if(message.contentData.type.includes("image")){
                     console.log("image");
@@ -118,35 +120,38 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function showClientInfo() {
-        userInterfaceButton.setAttribute("class", "btn btn-primary shown");
+        if(clientID){
+            userInterfaceButton.setAttribute("class", "btn btn-primary shown");
+            body.style.background = `#f8f9fa`;
 
-        let content = document.querySelector("#content");
-        content.classList.remove("hidden");
-        content.innerHTML = "";
+            let content = document.querySelector("#content");
+            content.classList.remove("hidden");
+            content.innerHTML = "";
 
-        let infoDiv = document.createElement("div");
-        infoDiv.classList.add("client-info");
+            let infoDiv = document.createElement("div");
+            infoDiv.classList.add("client-info");
 
-        let clientIdText = document.createElement("p");
-        clientIdText.innerText = "Client ID: " + clientID;
+            let clientIdText = document.createElement("p");
+            clientIdText.innerText = "Client ID: " + clientID;
 
-        let clientNameText = document.createElement("p");
-        clientNameText.innerText = "Name: " + clientName;
+            let clientNameText = document.createElement("p");
+            clientNameText.innerText = "Name: " + clientName;
 
-        
-        let clientPositionText = document.createElement("p");
-        clientPositionText.innerText = "Position: " + clientX + " x " + clientY;
+            
+            let clientPositionText = document.createElement("p");
+            clientPositionText.innerText = "Position: " + clientX + " x " + clientY;
 
-        if(playlistName && nextStart){
-            let clientStartText = document.createElement("p");
-            clientStartText.innerText = "Next Playlist " + playlistName + " Start: " + nextStart;
+            if(playlistName && nextStart){
+                let clientStartText = document.createElement("p");
+                clientStartText.innerText = "Next Playlist " + playlistName + " Start: " + nextStart;
 
-            infoDiv.appendChild(clientStartText);
+                infoDiv.appendChild(clientStartText);
+            }
+            infoDiv.appendChild(clientIdText);
+            infoDiv.appendChild(clientNameText);
+            infoDiv.appendChild(clientPositionText);
+            content.appendChild(infoDiv);
         }
-        infoDiv.appendChild(clientIdText);
-        infoDiv.appendChild(clientNameText);
-        infoDiv.appendChild(clientPositionText);
-        content.appendChild(infoDiv);
     }
 
     function getContentWidth(content){
