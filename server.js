@@ -33,6 +33,8 @@ var playlistData = null;
 var savedContent = [];
 var contentDuration = [];
 var isExtended = null;
+var times_play = 0;
+var times_play_count = 0;
 
 
 var defaultPlay = null;
@@ -164,9 +166,10 @@ function setup(){
 
         nextPlay = next;
         isExtended = nextPlay.extended;
+        times_play = nextPlay.how_often;
         playDefault = false;
 
-        console.log("hieeerrrrrrrrr: " + isExtended);
+        console.log("hieeerrrrrrrrr: " + times_play);
 
 
         // Timestamp-Request
@@ -237,13 +240,14 @@ async function sendPlaylist() {
     let playDuration = contentDuration;
 
     // Wenn defaultPlay gespielt wird -> 1/100 sec Verzögerung
-    if(nextPlay == defaultPlay || delay > (defaultPlaylistData.duration ) * 1000){
+    if(nextPlay == defaultPlay || delay > (defaultPlaylistData.duration + 2) * 1000){
         console.log("default");
         playDefault = true;
         isExtended = 0;
         delay = 10;
         playContent = defaultContent;
         playDuration = defaultContentDuration;
+        times_play = 1;
     }
 
     console.log("delay: " + delay);
@@ -262,25 +266,35 @@ async function sendPlaylist() {
     function loop() {
         if (!isSending) return; // Verhindert, dass mehrere Instanzen starten
 
-        if(index < playContent.length){
-            //console.log("index: " + index + ": " + playDuration[index]);
+        if(times_play_count < times_play){
+            if(index < playContent.length){
+                //console.log("index: " + index + ": " + playDuration[index]);
 
-            let content = playContent[index];
-            let duration = playDuration[index] * 1000;
+                let content = playContent[index];
+                let duration = playDuration[index] * 1000;
 
-            if (!content || content == null) {
-                console.error("Kein COntent gefunden");
-                return;
+                if (!content || content == null) {
+                    console.error("Kein COntent gefunden");
+                    return;
+                }
+
+                sendContentOnClients(content);
+                
+                index ++;
+
+                if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
+                timeoutId = setTimeout(loop, duration);
+            } 
+            else{
+                times_play_count ++;
+                console.log(times_play_count);
+
+                index = 0;
+
+                if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
+                timeoutId = setTimeout(loop, 1);
             }
-
-            sendContentOnClients(content);
-            
-            index ++;
-
-            if (timeoutId) clearTimeout(timeoutId); // Bereinige vorherigen Timeout
-            timeoutId = setTimeout(loop, duration);
-
-        } 
+        }
         else {
             reset();
         }
@@ -453,6 +467,9 @@ function reset(){
     savedContent = [];
     contentDuration = [];
     isExtended = 0;
+
+    times_play = 0;
+    times_play_count = 0;
 
     nextPlay = null;
     
